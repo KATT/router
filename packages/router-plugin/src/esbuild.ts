@@ -5,7 +5,11 @@ import { createRouterGeneratorPlugin } from './core/router-generator-plugin'
 import { unpluginRouterComposedFactory } from './core/router-composed-plugin'
 import { createRouterPluginContext } from './core/router-plugin-context'
 
-import type { CodeSplittingOptions, Config } from './core/config'
+import type {
+  CodeSplittingOptions,
+  Config,
+  PreloadStringsOptions,
+} from './core/config'
 import type { RouterPluginContext } from './core/router-plugin-context'
 
 type RouterPluginOptions = Partial<Config | (() => Config)> | undefined
@@ -80,4 +84,9 @@ export {
   tanstackRouter,
 }
 
-export type { Config, CodeSplittingOptions, RouterPluginContext }
+export type {
+  Config,
+  CodeSplittingOptions,
+  PreloadStringsOptions,
+  RouterPluginContext,
+}

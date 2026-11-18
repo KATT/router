@@ -5,7 +5,11 @@ import { createRouterCodeSplitterPlugin } from './core/router-code-splitter-plug
 import { createRouterGeneratorPlugin } from './core/router-generator-plugin'
 import { unpluginRouterComposedFactory } from './core/router-composed-plugin'
 import { createRouterPluginContext } from './core/router-plugin-context'
-import type { CodeSplittingOptions, Config } from './core/config'
+import type {
+  CodeSplittingOptions,
+  Config,
+  PreloadStringsOptions,
+} from './core/config'
 import type { RouterPluginContext } from './core/router-plugin-context'
 
 const defaultRouterPluginContext = createRouterPluginContext()
@@ -72,4 +76,9 @@ export {
   TanStackRouterCodeSplitterWebpack,
   tanstackRouter,
 }
-export type { Config, CodeSplittingOptions, RouterPluginContext }
+export type {
+  Config,
+  CodeSplittingOptions,
+  PreloadStringsOptions,
+  RouterPluginContext,
+}
