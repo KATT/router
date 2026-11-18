@@ -25,6 +25,32 @@ const POSTS = Array.from({ length: 500 }, (_, i) => {
   }
 })
 
+const AUTHORS = [
+  'Ada',
+  'Linus',
+  'Grace',
+  'Ken',
+  'Margaret',
+  'Dennis',
+  'Barbara',
+  'Alan',
+  'Radia',
+  'Tim',
+]
+const AGES = ['just now', '4 min ago', '1 h ago', '3 h ago', 'yesterday']
+
+const commentsFor = (postId: number) =>
+  Array.from({ length: 3 + ((postId * 5) % 6) }, (_, i) => {
+    const seed = postId * 11 + i * 3
+    const body = words(seed, 6 + (seed % 7))
+    return {
+      id: `${postId}-${i + 1}`,
+      author: AUTHORS[seed % AUTHORS.length]!,
+      body: `${body[0]!.toUpperCase()}${body.slice(1)}.`,
+      age: AGES[Math.min(i, AGES.length - 1)]!,
+    }
+  })
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export const appRouter = t.router({
@@ -58,6 +84,15 @@ export const appRouter = t.router({
           throw new TRPCError({ code: 'NOT_FOUND' })
         }
         return post
+      }),
+    comments: t.procedure
+      .input(z.object({ postId: z.number() }))
+      .query(async ({ input }) => {
+        await sleep(250)
+        if (!POSTS[input.postId - 1]) {
+          throw new TRPCError({ code: 'NOT_FOUND' })
+        }
+        return commentsFor(input.postId)
       }),
   }),
 })

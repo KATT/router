@@ -1,9 +1,16 @@
 # Viewport preload batching (TanStack Start + tRPC)
 
 A list of posts with infinite scroll. Every card is a `<Link>` to a post whose
-loader calls `posts.byId` through tRPC's `httpBatchStreamLink`. The toggle in
-the header picks how the post links preload, and the panel on the right logs
-every tRPC HTTP request.
+loader starts two queries, `posts.byId` and `posts.comments`, through tRPC's
+`httpBatchStreamLink`, so every preloaded link costs two procedure calls. The
+post page shows the post and, in its own `<Suspense>`, its comments. The toggle
+in the header picks how the post links preload, and the request log counts
+every tRPC HTTP request and the calls in it, coloured by how many posts each
+request preloads (one per request is red, five or more is green). On wide
+screens the log is a sticky column; on phones a bar pinned to the bottom shows
+the counters and the last batches, and opens the full log as a sheet. Each card
+has a dot that reads its queries from the React Query cache
+(`src/utils/query-status.ts`): not loaded, loading or preloaded.
 
 The mode is in the URL, e.g. `/?preload=viewport`, so a link picks it; it
 defaults to `viewport-batch`. The root route validates `?preload=` with zod

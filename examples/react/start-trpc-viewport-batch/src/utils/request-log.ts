@@ -43,3 +43,37 @@ export function useRequestLog() {
     () => EMPTY,
   )
 }
+
+/**
+ * How many post links a request preloads: each one calls `posts.byId` and
+ * `posts.comments`, so it is the larger of the two counts.
+ */
+export function preloadedPosts(request: LoggedRequest) {
+  const count = (name: string) =>
+    request.calls.filter((call) => call === name).length
+  return Math.max(count('posts.byId'), count('posts.comments'))
+}
+
+/**
+ * How a request reads in the log. One that preloads no post (a page of the
+ * list) is `neutral`. Otherwise one post per request is `single` (wasteful),
+ * up to four is `small`, and five or more is a real batch, `big`.
+ */
+export type BatchTone = 'neutral' | 'single' | 'small' | 'big'
+
+export function batchTone(request: LoggedRequest): BatchTone {
+  const posts = preloadedPosts(request)
+  if (posts === 0) {
+    return 'neutral'
+  }
+  if (posts === 1) {
+    return 'single'
+  }
+  return posts < 5 ? 'small' : 'big'
+}
+
+export function useRequestStats() {
+  const requests = useRequestLog()
+  const calls = requests.reduce((sum, r) => sum + r.calls.length, 0)
+  return { requests, calls, last: requests[0] }
+}
