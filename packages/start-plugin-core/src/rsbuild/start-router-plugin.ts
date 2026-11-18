@@ -2,6 +2,7 @@ import { createRouterPluginContext } from '@tanstack/router-plugin/context'
 import {
   TanStackRouterCodeSplitterRspack,
   TanStackRouterGeneratorRspack,
+  TanStackRouterPreloadStringsRspack,
 } from '@tanstack/router-plugin/rspack'
 import { startGeneratorConfig } from '../start-router-plugin/generator-config'
 import { RSBUILD_ENVIRONMENT_NAMES } from './planning'
@@ -49,6 +50,14 @@ export function registerRouterPlugins(
       envName === RSBUILD_ENVIRONMENT_NAMES.client ||
       envName === RSBUILD_ENVIRONMENT_NAMES.server
     ) {
+      // `router.experimental.compilePreloadStrings`, before the code
+      // splitter, so split route components are rewritten too
+      if (
+        opts.corePluginOpts.framework === 'react' &&
+        routerConfig.experimental?.compilePreloadStrings
+      ) {
+        utils.appendPlugins(TanStackRouterPreloadStringsRspack())
+      }
       const isClient = envName === RSBUILD_ENVIRONMENT_NAMES.client
       const splitterPlugin = TanStackRouterCodeSplitterRspack(
         {

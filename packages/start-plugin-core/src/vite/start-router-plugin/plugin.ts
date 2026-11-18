@@ -1,6 +1,7 @@
 import { createRouterPluginContext } from '@tanstack/router-plugin/context'
 import {
   tanStackRouterCodeSplitter,
+  tanStackRouterPreloadStrings,
   tanstackRouterGenerator,
 } from '@tanstack/router-plugin/vite'
 import path from 'pathe'
@@ -136,6 +137,17 @@ export function tanStackStartRouter(
       },
     },
   }
+  // `router.experimental.compilePreloadStrings`, read once Start's config is
+  // resolved. Before the code splitters, so split route components are
+  // rewritten too.
+  const preloadStringsPlugin: Plugin = {
+    ...(tanStackRouterPreloadStrings() as Plugin),
+    applyToEnvironment: () =>
+      corePluginOpts.framework === 'react' &&
+      getConfig().startConfig.router.experimental?.compilePreloadStrings ===
+        true,
+  }
+
   return [
     clientTreePlugin,
     tanstackRouterGenerator(
@@ -148,6 +160,7 @@ export function tanStackStartRouter(
         }),
       routerPluginContext,
     ),
+    preloadStringsPlugin,
     tanStackRouterCodeSplitter(() => {
       const routerConfig = getConfig().startConfig.router
       return {
