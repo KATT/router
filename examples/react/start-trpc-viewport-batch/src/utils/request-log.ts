@@ -75,5 +75,5 @@ export function batchTone(request: LoggedRequest): BatchTone {
 export function useRequestStats() {
   const requests = useRequestLog()
   const calls = requests.reduce((sum, r) => sum + r.calls.length, 0)
-  return { requests, calls, last: requests[0] }
+  return { requests, calls }
 }

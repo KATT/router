@@ -18,7 +18,7 @@ const summarize = (calls: Array<string>) => {
 
 /** Desktop: the full log in a sticky column. */
 export function RequestLogPanel() {
-  const { requests, calls, last } = useRequestStats()
+  const { requests, calls } = useRequestStats()
 
   return (
     <Card className="flex max-h-[calc(100dvh-8.5rem)] flex-col overflow-hidden">
@@ -34,14 +34,9 @@ export function RequestLogPanel() {
         </Button>
       </div>
       <div className="space-y-4 border-b px-4 py-4">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <StatTile value={requests.length} label="HTTP requests" />
           <StatTile value={calls} label="procedure calls" />
-          <StatTile
-            value={last ? last.calls.length : '–'}
-            label="last batch"
-            tone={last ? batchTone(last) : undefined}
-          />
         </div>
         <div>
           <BatchBars requests={requests} max={36} className="h-12" />
@@ -61,7 +56,7 @@ export function RequestLogPanel() {
  * last few batches. Tapping it opens the full log as a bottom sheet.
  */
 export function RequestLogDock() {
-  const { requests, calls, last } = useRequestStats()
+  const { requests, calls } = useRequestStats()
   const [open, setOpen] = React.useState(false)
   const closeRef = React.useRef<HTMLButtonElement>(null)
 
@@ -92,11 +87,6 @@ export function RequestLogDock() {
         >
           <DockStat value={requests.length} label="requests" />
           <DockStat value={calls} label="calls" />
-          <DockStat
-            value={last ? last.calls.length : '–'}
-            label="last"
-            tone={last ? batchTone(last) : undefined}
-          />
           <BatchBars
             requests={requests}
             max={16}
@@ -135,14 +125,9 @@ export function RequestLogDock() {
               </div>
             </div>
             <div className="space-y-3 border-b px-4 pb-4">
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <StatTile value={requests.length} label="HTTP requests" />
                 <StatTile value={calls} label="procedure calls" />
-                <StatTile
-                  value={last ? last.calls.length : '–'}
-                  label="last batch"
-                  tone={last ? batchTone(last) : undefined}
-                />
               </div>
               <ToneLegend />
             </div>
