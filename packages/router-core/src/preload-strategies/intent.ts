@@ -1,4 +1,3 @@
-import { delayed } from './click'
 import type { ClickRef } from './click'
 import { memoByOptions } from './memo'
 import type { PreloadStrategy } from './types'
@@ -35,7 +34,23 @@ export function makeIntent(options: IntentPreloadOptions): PreloadStrategy {
     if (!element) {
       return
     }
-    const [start, cancel] = delayed(router, preload, delay ?? options.delay)
+    // The link's own delay, else the strategy's, else the router's. Each
+    // chunk has its own copy: a module the two shared would be a chunk of its
+    // own that each also loads.
+    const wait = delay ?? options.delay ?? router.options.defaultPreloadDelay
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const cancel = () => {
+      clearTimeout(timer)
+      timer = undefined
+    }
+    // Without a delay, preloads at once
+    const start = () =>
+      wait
+        ? (timer ??= setTimeout(() => {
+            timer = undefined
+            preload()
+          }, wait))
+        : preload()
     // Like React's `onMouseEnter`: moving or focusing between the link's own
     // children isn't entering or leaving it
     const within = (event: Event) =>
