@@ -308,6 +308,7 @@ export {
   batchedViewportPreload,
   createPreloadStrategy,
   intentPreload,
+  linkNavigatingClick,
   loadPreloadStrings,
   preloadString,
   renderPreload,

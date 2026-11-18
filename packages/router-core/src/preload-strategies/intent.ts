@@ -1,4 +1,5 @@
 import { delayed } from './builtin'
+import { onNavigatingClick } from './click'
 import { memoByOptions } from './memo'
 import type { PreloadStrategy } from './types'
 
@@ -13,8 +14,8 @@ export interface IntentPreloadOptions {
 }
 
 /**
- * `'intent'`: focus or hover preloads after the delay, and leaving or clicking
- * first cancels it. Touch preloads at once.
+ * `'intent'`: focus or hover preloads after the delay, and leaving, or a
+ * click the Link navigates on, first cancels it. Touch preloads at once.
  *
  * The same options (or none) give the same strategy, so calling it inline in
  * render is fine.
@@ -37,16 +38,17 @@ export const intentPreload = /* @__PURE__ */ memoByOptions<
     mouseleave: cancel,
     focusout: cancel,
     touchstart: preload,
-    // Before the click navigates
-    click: cancel,
   }
   for (const type in listeners) {
     element.addEventListener(type, listeners[type]!, { passive: true })
   }
+  // Before a click the Link navigates on
+  const stopClick = onNavigatingClick(ref, cancel)
   return () => {
     for (const type in listeners) {
       element.removeEventListener(type, listeners[type]!)
     }
+    stopClick()
     cancel()
   }
 })

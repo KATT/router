@@ -1,4 +1,5 @@
 import { delayed } from './builtin'
+import { onNavigatingClick } from './click'
 import { memoByOptions } from './memo'
 import type { PreloadStrategy } from './types'
 
@@ -19,8 +20,8 @@ export interface ViewportPreloadOptions {
 
 /**
  * `'viewport'`: each link has its own IntersectionObserver. Entering the
- * viewport preloads after the delay, and leaving or clicking first cancels
- * it.
+ * viewport preloads after the delay, and leaving, or a click the Link
+ * navigates on, first cancels it.
  *
  * The same options (or none) give the same strategy, so calling it inline in
  * render is fine.
@@ -51,12 +52,11 @@ export const viewportPreload = /* @__PURE__ */ memoByOptions<
     { rootMargin: options.rootMargin ?? '100px' },
   )
   observer.observe(element)
-  // A click cancels a pending preload before it navigates
-  element.addEventListener('click', cancel, { passive: true })
+  const stopClick = onNavigatingClick(ref, cancel)
   return () => {
     active = false
     observer.disconnect()
-    element.removeEventListener('click', cancel)
+    stopClick()
     cancel()
   }
 })

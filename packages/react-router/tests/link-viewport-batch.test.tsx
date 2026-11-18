@@ -473,16 +473,17 @@ describe('strategies attach only the listeners they need', () => {
     return { added, removed }
   }
 
+  // A click the Link navigates on reaches the strategy through the Link
   test.each([
     ['viewportPreload()', viewportPreload()],
     ['batchedViewportPreload()', 'batch'],
-  ] as const)('%s: a click listener per link', async (_, preload) => {
+  ] as const)('%s: none, an observer watches the link', async (_, preload) => {
     const { added, removed } = await linkListeners(preload)
-    expect(added).toEqual(['click', 'click', 'click'])
-    expect(removed).toEqual(['click', 'click', 'click'])
+    expect(added).toEqual([])
+    expect(removed).toEqual([])
   })
 
-  test('intentPreload(): hover, focus, touch and click', async () => {
+  test('intentPreload(): hover, focus and touch', async () => {
     const { added, removed } = await linkListeners(intentPreload())
     const perLink = [
       'mouseover',
@@ -490,7 +491,6 @@ describe('strategies attach only the listeners they need', () => {
       'mouseleave',
       'focusout',
       'touchstart',
-      'click',
     ]
     expect(added).toEqual([...perLink, ...perLink, ...perLink])
     expect(removed).toEqual(added)

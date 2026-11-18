@@ -6,6 +6,7 @@ import {
   functionalUpdate,
   getUrlScheme,
   isDangerousProtocol,
+  linkNavigatingClick,
   preloadString,
   preloadWarning,
   removeTrailingSlash,
@@ -397,6 +398,7 @@ export function useLinkProps<
       e.button === 0
     ) {
       e.preventDefault()
+      linkNavigatingClick(innerRef)
 
       // The current options carry the navigation controls; `dest` only
       // contributes the location the link displays. Navigation builds again

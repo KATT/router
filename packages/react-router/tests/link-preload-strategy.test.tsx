@@ -101,6 +101,79 @@ const listenerCalls = (
     .filter((_, i) => spy.mock.contexts[i] === element)
     .map(([type]) => type)
 
+describe('a click cancels a pending preload only when the Link navigates on it', () => {
+  type Strategy = 'intent' | 'viewport' | 'batched'
+  const strategies: Array<Strategy> = ['intent', 'viewport', 'batched']
+
+  // Starts a pending preload of the link (delay 50), then clicks it
+  async function clickWhilePending(
+    strategy: Strategy,
+    props: Record<string, unknown>,
+    click: Parameters<typeof fireEvent.click>[1] = {},
+  ) {
+    const { preload, navigate, mount } = setup({
+      defaultPreloadDelay: 50,
+      defaultPreload: strategy === 'batched' ? batchedViewportPreload() : false,
+    })
+    mount(
+      <Link
+        to="/target"
+        preload={strategy === 'batched' ? undefined : strategy}
+        {...props}
+      >
+        Target
+      </Link>,
+    )
+    const link = screen.getByRole('link')
+    vi.useFakeTimers()
+    // jsdom can't follow a click the Link leaves to the browser
+    window.addEventListener('click', (e) => e.preventDefault(), { once: true })
+    if (strategy === 'intent') {
+      fireEvent.mouseEnter(link)
+    } else {
+      intersect(link)
+    }
+    fireEvent.click(link, click)
+    await vi.advanceTimersByTimeAsync(50)
+    return { preload, navigate }
+  }
+
+  test.each(strategies)('%s: a plain click cancels it', async (strategy) => {
+    const { preload, navigate } = await clickWhilePending(strategy, {})
+    expect(navigate).toHaveBeenCalledTimes(1)
+    expect(preload).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  test.each(
+    strategies.flatMap((strategy) =>
+      (
+        [
+          ['ctrl', {}, { ctrlKey: true }],
+          ['meta', {}, { metaKey: true }],
+          ['shift', {}, { shiftKey: true }],
+          ['alt', {}, { altKey: true }],
+          ['middle button', {}, { button: 1 }],
+          ['target="_blank"', { target: '_blank' }, {}],
+          [
+            'onClick calling preventDefault()',
+            { onClick: (e: React.MouseEvent) => e.preventDefault() },
+            {},
+          ],
+        ] as const
+      ).map(([name, props, click]) => [strategy, name, props, click] as const),
+    ),
+  )('%s: a %s click keeps it', async (strategy, _name, props, click) => {
+    const { preload, navigate } = await clickWhilePending(
+      strategy,
+      props,
+      click,
+    )
+    expect(navigate).not.toHaveBeenCalled()
+    expect(preload).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('invalid preload values are ignored', () => {
   test.each([
     ['true', true],
