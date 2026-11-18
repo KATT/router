@@ -25,6 +25,7 @@ export {
   batchedViewportPreload,
   createPreloadStrategy,
   intentPreload,
+  preloadDefaults,
   renderPreload,
   viewportPreload,
 } from '@tanstack/router-core'
@@ -114,11 +115,12 @@ export type {
   DefaultPreloadOptions,
   IntentPreloadOptions,
   LinkPreloader,
+  PreloadDefaults,
   PreloadHandlers,
   PreloadLink,
   PreloadOption,
   PreloadStrategy,
-  PreloadStrategyOptions,
+  PreloadStrategyFactory,
   ViewportPreloadOptions,
 } from '@tanstack/router-core'
 

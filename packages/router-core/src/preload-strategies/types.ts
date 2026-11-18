@@ -1,9 +1,9 @@
 import type { AnyRouter } from '../router'
-import type { BatchedViewportPreloadOptions } from './batched-viewport'
-import type { IntentPreloadOptions } from './intent'
-import type { ViewportPreloadOptions } from './viewport'
 
-/** What a strategy gets for one Link on the client. */
+/**
+ * What a strategy gets for one Link on the client.
+ * @experimental
+ */
 export interface PreloadLink {
   /** The link's element, if its ref is attached */
   element: Element | null
@@ -15,7 +15,10 @@ export interface PreloadLink {
   preload: () => void
 }
 
-/** How a strategy reacts to the Link's own events. Every one is optional. */
+/**
+ * How a strategy reacts to the Link's own events. Every one is optional.
+ * @experimental
+ */
 export interface PreloadHandlers {
   /** Focus or mouse enter */
   enter?: () => void
@@ -29,7 +32,10 @@ export interface PreloadHandlers {
   cleanup?: () => void
 }
 
-/** A strategy started for one router: called for each Link. */
+/**
+ * A strategy started for one router: called for each Link.
+ * @experimental
+ */
 export type LinkPreloader = (link: PreloadLink) => PreloadHandlers | void
 
 /**
@@ -37,30 +43,28 @@ export type LinkPreloader = (link: PreloadLink) => PreloadHandlers | void
  * it reads the router's defaults and keeps state its links share, and the
  * function it returns runs for each Link on the client: when the Link mounts
  * and again when its options change. `'intent'`, `'viewport'` and `'render'`
- * are the built-in strategies by name.
+ * are shorthands for the built-in strategies.
+ * @experimental
  */
 export type PreloadStrategy = (router: AnyRouter) => LinkPreloader
 
 /**
- * Each named strategy's options, as `defaultPreloadOptions` takes them. Add
- * your own strategy's by declaration merging:
- *
- * ```ts
- * declare module '@tanstack/router-core' {
- *   interface PreloadStrategyOptions {
- *     idle: { timeout?: number }
- *   }
- * }
- * ```
+ * Makes a strategy from options, as `createPreloadStrategy` returns it. Its
+ * identity is what `preloadDefaults` keys the router's defaults by.
+ * @experimental
  */
-export interface PreloadStrategyOptions {
-  intent: IntentPreloadOptions
-  viewport: ViewportPreloadOptions
-  render: object
-  batchedViewport: BatchedViewportPreloadOptions
-}
+export type PreloadStrategyFactory<TOptions extends object = object> = (
+  options?: TOptions,
+) => PreloadStrategy
 
-/** Router-wide options per named strategy */
-export type DefaultPreloadOptions = {
-  [TName in keyof PreloadStrategyOptions]?: PreloadStrategyOptions[TName]
-}
+/**
+ * Router-wide options for one strategy factory, from `preloadDefaults`
+ * @experimental
+ */
+export type PreloadDefaults = readonly [PreloadStrategyFactory<any>, object]
+
+/**
+ * `defaultPreloadOptions`: one `preloadDefaults(factory, options)` per factory
+ * @experimental
+ */
+export type DefaultPreloadOptions = ReadonlyArray<PreloadDefaults>

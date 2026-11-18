@@ -6,7 +6,7 @@ import type { LinkPreloader, PreloadStrategy } from './types'
 
 export { intentPreload, renderPreload, viewportPreload }
 export { batchedViewportPreload } from './batched-viewport'
-export { createPreloadStrategy } from './shared'
+export { createPreloadStrategy, preloadDefaults } from './shared'
 export type { BatchedViewportPreloadOptions } from './batched-viewport'
 export type { IntentPreloadOptions } from './intent'
 export type { ViewportPreloadOptions } from './viewport'
@@ -14,12 +14,16 @@ export type {
   DefaultPreloadOptions,
   LinkPreloader,
   PreloadHandlers,
+  PreloadDefaults,
   PreloadLink,
   PreloadStrategy,
-  PreloadStrategyOptions,
+  PreloadStrategyFactory,
 } from './types'
 
-/** A `preload` option as Links and the router take it */
+/**
+ * A `preload` option as Links and the router take it
+ * @experimental
+ */
 export type PreloadOption =
   | false
   | 'intent'
@@ -36,6 +40,7 @@ const started = new WeakMap<
  * Starts the strategy a `preload` option names for a router, once per router,
  * and gives what runs for each Link; `undefined` for no preloading. The
  * strings are the built-in strategies with their default options.
+ * @experimental
  */
 export function resolvePreloadStrategy(
   preload: PreloadOption | undefined,

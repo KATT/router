@@ -96,6 +96,8 @@ You can also set the `preloadDelay` prop on individual `<Link>` components to ov
 
 ### Batching Viewport Preloads
 
+> **Experimental:** Preload strategies are experimental and subject to change.
+
 With `'viewport'`, each link has its own timer, so links that scroll into view at different times preload at different times. `batchedViewportPreload()` is a preload strategy that shares one timer between links instead:
 
 ```tsx
@@ -117,6 +119,8 @@ The batch belongs to the router. Every link on it that uses `batchedViewportPrel
 
 ### Preload Strategies
 
+> **Experimental:** Preload strategies are experimental and subject to change.
+
 `preload` and `defaultPreload` also take a strategy, which decides when links preload. The strings are the built-in strategies with their default options, and you can import them to pass options:
 
 | String       | Strategy                                 |
@@ -125,40 +129,50 @@ The batch belongs to the router. Every link on it that uses `batchedViewportPrel
 | `'viewport'` | `viewportPreload({ delay, rootMargin })` |
 | `'render'`   | `renderPreload()`                        |
 
-Set options for every use of a strategy on the router with `defaultPreloadOptions`, by name. They also apply to the strings:
+Set options for every use of a strategy on the router with `defaultPreloadOptions`, one `preloadDefaults(strategy, options)` per strategy. The options are typed from the strategy you pass, and the router finds them by that strategy itself, so they also apply to the strings:
 
 ```tsx
+import {
+  batchedViewportPreload,
+  createRouter,
+  preloadDefaults,
+  viewportPreload,
+} from '@tanstack/react-router'
+
 const router = createRouter({
   // ...
   defaultPreload: 'viewport',
-  defaultPreloadOptions: {
-    viewport: { rootMargin: '200px' },
-    batchedViewport: { delay: 150 },
-  },
+  defaultPreloadOptions: [
+    preloadDefaults(viewportPreload, { rootMargin: '200px' }),
+    preloadDefaults(batchedViewportPreload, { delay: 150 }),
+  ],
 })
 ```
 
-For a delay, a link's own `preloadDelay` wins, then the options passed to the strategy, then `defaultPreloadOptions`, then `defaultPreloadDelay`. `rootMargin` defaults to `'100px'`. The same options always give the same strategy, so creating one inline in render is fine.
+For a delay, a link's own `preloadDelay` wins, then the options passed to the strategy, then its `preloadDefaults`, then `defaultPreloadDelay`. `rootMargin` defaults to `'100px'`. The same options always give the same strategy, so creating one inline in render is fine.
 
-Write your own with `createPreloadStrategy`. It's started once per router, with the router's `defaultPreloadOptions` for its name merged under the options it's called with, and returns what runs for each link on the client:
+Write your own with `createPreloadStrategy`. It's started once per router, with the router's `preloadDefaults` for it merged under the options it's called with, and returns what runs for each link on the client. It needs no name or registering:
 
 ```tsx
-import { createPreloadStrategy } from '@tanstack/react-router'
-
-declare module '@tanstack/react-router' {
-  interface PreloadStrategyOptions {
-    eager: { onTouch?: boolean }
-  }
-}
+import {
+  createPreloadStrategy,
+  createRouter,
+  preloadDefaults,
+} from '@tanstack/react-router'
 
 // Hover or focus preloads at once, and leaving doesn't cancel it
 export const eagerPreload = createPreloadStrategy(
-  'eager',
-  (options, router) => (link) => ({
+  (options: { onTouch?: boolean }, router) => (link) => ({
     enter: link.preload,
     touch: options.onTouch ? link.preload : undefined,
   }),
 )
+
+const router = createRouter({
+  // ...
+  defaultPreload: eagerPreload(),
+  defaultPreloadOptions: [preloadDefaults(eagerPreload, { onTouch: true })],
+})
 ```
 
 The router stage is where a strategy reads its options and keeps state its links share. The link stage gets the link's element, its own `preloadDelay` and a `preload()` function, and can return handlers: `enter` (focus or mouse enter), `leave` (blur or mouse leave), `touch`, `cancel` (a click, before it navigates) and `cleanup` (the link unmounts or its options change).

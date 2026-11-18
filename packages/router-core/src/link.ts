@@ -26,7 +26,7 @@ import type {
   Updater,
 } from './utils'
 import type { ParsedLocation } from './location'
-import type { PreloadOption } from './preload-strategies'
+import type { PreloadOption } from './preload-strategies/index'
 
 export type IsRequiredParams<TParams> =
   Record<never, never> extends TParams ? never : true

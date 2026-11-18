@@ -57,7 +57,10 @@ import {
 } from './rewrite'
 import { createRouterStores } from './stores'
 import type { SieveCache } from './sieve-cache'
-import type { DefaultPreloadOptions, PreloadOption } from './preload-strategies'
+import type {
+  DefaultPreloadOptions,
+  PreloadOption,
+} from './preload-strategies/index'
 import type { RouteInterpolation } from './path'
 import type {
   ProcessRouteTreeResult,
@@ -242,10 +245,11 @@ export interface RouterOptions<
    */
   defaultPreloadDelay?: number
   /**
-   * Router-wide options for each preload strategy, by name. They apply to the
-   * string modes and to strategies created without those options, eg.
-   * `{ viewport: { rootMargin: '200px' }, batchedViewport: { delay: 150 } }`.
-   * Options passed to a strategy win.
+   * Router-wide options for preload strategies, one `preloadDefaults(factory, options)`
+   * per strategy factory, eg.
+   * `[preloadDefaults(viewportPreload, { rootMargin: '200px' })]`. They apply
+   * to the string modes too. Options passed to a strategy win.
+   * @experimental
    */
   defaultPreloadOptions?: DefaultPreloadOptions
   /**

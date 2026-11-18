@@ -63,9 +63,11 @@ The `RouterOptions` type accepts an object with the following properties and met
 
 ### `defaultPreloadOptions` property
 
-- Type: `{ intent?, viewport?, render?, batchedViewport? }`
+> **Experimental:** Preload strategies are experimental and subject to change.
+
+- Type: `ReadonlyArray<PreloadDefaults>`
 - Optional
-- Router-wide options for each preload strategy, by name, eg. `{ viewport: { rootMargin: '200px' }, batchedViewport: { delay: 150 } }`. They apply to the string modes and to strategies created without those options; options passed to a strategy win. See [Preload Strategies](../../guide/preloading.md#preload-strategies).
+- Router-wide options for preload strategies, one `preloadDefaults(strategy, options)` per strategy, eg. `[preloadDefaults(viewportPreload, { rootMargin: '200px' }), preloadDefaults(batchedViewportPreload, { delay: 150 })]`. The router finds them by the strategy itself, so they apply to the string modes and to your own strategies too; options passed to a strategy win. See [Preload Strategies](../../guide/preloading.md#preload-strategies).
 
 ### `defaultComponent` property
 

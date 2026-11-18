@@ -6,10 +6,12 @@ import {
   RouterProvider,
   batchedViewportPreload,
   createMemoryHistory,
+  createPreloadStrategy,
   createRootRoute,
   createRoute,
   createRouter,
   intentPreload,
+  preloadDefaults,
   renderPreload,
   viewportPreload,
 } from '../src'
@@ -334,11 +336,14 @@ describe('strategies by import work like their strings', () => {
     expect(second.preloads.map(([id]) => id)).toEqual(['a'])
   })
 
-  test("the router's defaultPreloadOptions apply per strategy name", async () => {
-    // The string mode picks up its name's router-wide options
+  test("the router's defaultPreloadOptions apply per strategy factory", async () => {
+    // The string mode picks up its factory's router-wide options
     await setup({
       preload: 'viewport',
-      defaultPreloadOptions: { viewport: { rootMargin: '250px' } },
+      defaultPreloadOptions: [
+        preloadDefaults(intentPreload, { delay: 1 }),
+        preloadDefaults(viewportPreload, { rootMargin: '250px' }),
+      ],
     })
     expect(rootMargins).toEqual(['250px', '250px', '250px'])
 
@@ -348,14 +353,61 @@ describe('strategies by import work like their strings', () => {
     // Options passed to the strategy win over the router's
     const { preloads, scroll } = await setup({
       inlinePreload: () => batchedViewportPreload({ rootMargin: '10px' }),
-      defaultPreloadOptions: {
-        batchedViewport: { delay: 20, rootMargin: '999px' },
-      },
+      defaultPreloadOptions: [
+        // A later entry for the same factory wins
+        preloadDefaults(batchedViewportPreload, { delay: 5 }),
+        preloadDefaults(batchedViewportPreload, {
+          delay: 20,
+          rootMargin: '999px',
+        }),
+      ],
     })
     expect(rootMargins).toEqual(['10px'])
     scroll('a', true)
-    await vi.advanceTimersByTimeAsync(20)
+    await vi.advanceTimersByTimeAsync(19)
+    expect(preloads).toEqual([])
+    await vi.advanceTimersByTimeAsync(1)
     expect(preloads.map(([id]) => id)).toEqual(['a'])
+  })
+
+  test('a custom strategy gets its router defaults with no registration', async () => {
+    // Hover or focus preloads after `wait`, or at once
+    const waitPreload = createPreloadStrategy(
+      (options: { wait?: number }) => (link) => ({
+        enter: () => {
+          setTimeout(link.preload, options.wait ?? 0)
+        },
+      }),
+    )
+    const { preloads, links } = await setup({
+      inlinePreload: () => waitPreload(),
+      defaultPreloadOptions: [preloadDefaults(waitPreload, { wait: 70 })],
+    })
+
+    fireEvent.mouseEnter(links.a)
+    await vi.advanceTimersByTimeAsync(69)
+    expect(preloads).toEqual([])
+    await vi.advanceTimersByTimeAsync(1)
+    expect(preloads.map(([id]) => id)).toEqual(['a'])
+
+    // Options passed to it still win
+    cleanup()
+    vi.useRealTimers()
+    const second = await setup({
+      inlinePreload: () => waitPreload({ wait: 10 }),
+      defaultPreloadOptions: [preloadDefaults(waitPreload, { wait: 70 })],
+    })
+    fireEvent.mouseEnter(second.links.a)
+    await vi.advanceTimersByTimeAsync(10)
+    expect(second.preloads.map(([id]) => id)).toEqual(['a'])
+  })
+
+  test('preloadDefaults types its options from the factory', () => {
+    preloadDefaults(batchedViewportPreload, { delay: 1, rootMargin: '1px' })
+    // @ts-expect-error not an option of viewportPreload
+    preloadDefaults(viewportPreload, { wait: 1 })
+    // @ts-expect-error delay is a number
+    preloadDefaults(intentPreload, { delay: '1' })
   })
 
   test('viewport strategies take a rootMargin', async () => {

@@ -308,22 +308,24 @@ export {
   batchedViewportPreload,
   createPreloadStrategy,
   intentPreload,
+  preloadDefaults,
   renderPreload,
   resolvePreloadStrategy,
   viewportPreload,
-} from './preload-strategies'
+} from './preload-strategies/index'
 export type {
   BatchedViewportPreloadOptions,
   DefaultPreloadOptions,
   IntentPreloadOptions,
   LinkPreloader,
+  PreloadDefaults,
   PreloadHandlers,
   PreloadLink,
   PreloadOption,
   PreloadStrategy,
-  PreloadStrategyOptions,
+  PreloadStrategyFactory,
   ViewportPreloadOptions,
-} from './preload-strategies'
+} from './preload-strategies/index'
 
 export {
   defaultParseSearch,
