@@ -207,34 +207,9 @@ export function useLinkProps<
   // ==========================================================================
 
   // The link's own ref: the element its preload strategy watches, and its
-  // identity for the strategy. A forwarded ref is filled alongside it by one
-  // callback, memoized on the forwarded ref so React re-attaches it (and
-  // notifies the consumer) only when their ref changes, not on every render.
-  // A cleanup returned by a consumer callback is passed through to React.
+  // identity for the strategy.
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const innerRef: LinkRef = React.useRef<Element>(null)
-  // An element that replaced the one the running strategy started with, eg.
-  // a `createLink` component that switched elements: the strategy restarts
-  // with it.
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const [swapped, setSwapped] = React.useState<Element>()
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const mergedRef = React.useCallback(
-    (element: Element | null) => {
-      innerRef.current = element
-      if (element && innerRef.s !== undefined && innerRef.s !== element) {
-        setSwapped(element)
-      }
-      if (typeof forwardedRef === 'function') {
-        return forwardedRef(element)
-      }
-      if (forwardedRef) {
-        forwardedRef.current = element
-      }
-      return undefined
-    },
-    [forwardedRef],
-  )
 
   const {
     activeOptions,
@@ -364,31 +339,59 @@ export function useLinkProps<
 
   // Preloading is up to a strategy: it listens to or observes the element
   // itself and returns a cleanup. A string goes through `preloadString`, which
-  // loads the built-in strategies on demand.
+  // loads the built-in strategies on demand. The element's ref callback runs
+  // it: it starts with an element and stops when the element detaches, on
+  // unmount, for a new element (eg. a `createLink` component that switched
+  // elements) and when a new href or preload option makes a new callback.
+  // A forwarded ref is filled alongside, and a cleanup returned by a consumer
+  // callback is passed through to React.
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  React.useEffect(() => {
-    const strategy =
-      typeof preload === 'string' ? preloadString(preload) : preload
-    if (typeof strategy === 'function') {
-      innerRef.s = innerRef.current
-      const stop = strategy(
-        router,
-        innerRef,
-        () => preloadLink(router, innerRef.d),
-        userPreloadDelay,
-      )
-      return () => {
+  const mergedRef = React.useCallback(
+    (element: Element | null) => {
+      // React 18 detaches a callback ref by calling it with `null`, and so
+      // does React 19 unless the callback returned a cleanup
+      const stop = () => {
+        innerRef.s?.()
         innerRef.s = undefined
-        stop?.()
       }
-    }
-    if (process.env.NODE_ENV !== 'production' && preload) {
-      console.warn(
-        `Invalid preload ${String(preload)}: use 'intent', 'viewport', 'render', false or a preload strategy`,
-      )
-    }
-    return undefined
-  }, [router, href, preload, innerRef, userPreloadDelay, swapped])
+      stop()
+      innerRef.current = element
+      if (element) {
+        const strategy =
+          typeof preload === 'string' ? preloadString(preload) : preload
+        if (typeof strategy === 'function') {
+          innerRef.s = strategy(
+            router,
+            innerRef,
+            () => preloadLink(router, innerRef.d),
+            userPreloadDelay,
+          )
+        } else if (process.env.NODE_ENV !== 'production' && preload) {
+          console.warn(
+            `Invalid preload ${String(preload)}: use 'intent', 'viewport', 'render', false or a preload strategy`,
+          )
+        }
+      }
+      if (typeof forwardedRef === 'function') {
+        // React 19 callback refs may return a cleanup
+        const cleanup = forwardedRef(element) as unknown as
+          | (() => void)
+          | undefined
+        return (
+          cleanup &&
+          (() => {
+            stop()
+            cleanup()
+          })
+        )
+      }
+      if (forwardedRef) {
+        forwardedRef.current = element
+      }
+      return undefined
+    },
+    [forwardedRef, router, href, preload, innerRef, userPreloadDelay],
+  )
 
   const props = collectElementProps(options, host)
   props.ref = mergedRef
@@ -591,12 +594,11 @@ function getServerLinkProps(
   )
 }
 
-// A Link's own ref also holds what its preload strategy reads after it
-// starts: the latest destination (`d`) and the element the strategy started
-// with (`s`, `undefined` while none runs).
+// A Link's own ref also holds the latest destination its preload strategy
+// preloads (`d`) and the cleanup of the running strategy (`s`).
 type LinkRef = React.RefObject<Element | null> & {
   d?: unknown
-  s?: Element | null
+  s?: (() => void) | void
 }
 
 export const composeHandlers = (
