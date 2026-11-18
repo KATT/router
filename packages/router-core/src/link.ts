@@ -26,6 +26,7 @@ import type {
   Updater,
 } from './utils'
 import type { ParsedLocation } from './location'
+import type { PreloadOption } from './preload-strategies/index'
 
 export type IsRequiredParams<TParams> =
   Record<never, never> extends TParams ? never : true
@@ -674,8 +675,9 @@ export interface LinkOptionsProps {
    * - `'intent'` - Preload the linked route when the user focuses, hovers over, or touches the link
    * - `'viewport'` - Preload the linked route when it enters the viewport
    * - `'render'` - Preload the linked route as soon as it renders
+   * - A preload strategy, eg. `batchedViewportPreload()` (experimental, React only for now)
    */
-  preload?: false | 'intent' | 'viewport' | 'render'
+  preload?: PreloadOption
   /**
    * Delays focus, hover, and viewport preloading by this many milliseconds.
    * Touch intent preloads immediately. If focus or hover ends, or the link

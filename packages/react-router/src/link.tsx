@@ -393,6 +393,16 @@ export function useLinkProps<
     if (!preload) {
       return
     }
+    // An imported strategy decides on its own and listens to the element
+    // itself, so the Link only hands it over; the strings run the code below.
+    if (typeof preload === 'function') {
+      return preload(
+        router,
+        innerRef,
+        () => preloadLink(router, dest),
+        userPreloadDelay,
+      )
+    }
     if (preload === 'render' && !hasRenderFetched.current) {
       hasRenderFetched.current = true
       preloadLink(router, dest)
@@ -420,7 +430,7 @@ export function useLinkProps<
       observer?.disconnect()
       cancelPreload(innerRef)
     }
-  }, [router, dest, preload, enqueuePreload, innerRef])
+  }, [router, dest, preload, enqueuePreload, innerRef, userPreloadDelay])
 
   const props = collectElementProps(options, host)
   props.ref = forwardedRef ? mergedRef : innerRef
