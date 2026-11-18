@@ -1,4 +1,5 @@
 import * as React from 'react'
+import * as ReactDOM from 'react-dom'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import {
   afterEach,
@@ -19,6 +20,7 @@ import {
   createRootRoute,
   createRouter,
   intentPreload,
+  renderPreload,
   viewportPreload,
 } from '../src'
 import type { PreloadOption, RouterOptions } from '../src'
@@ -482,5 +484,354 @@ describe('batchedViewportPreload()', () => {
       expect(listening()).toBe(0)
       expect(observed.size).toBe(0)
     })
+  })
+})
+
+describe('delays', () => {
+  // [router default, strategy delay, link preloadDelay, expected wait]
+  const cases = [
+    [50, undefined, undefined, 50],
+    [50, 30, undefined, 30],
+    [50, 30, 10, 10],
+    // `??`, not `||`: an explicit 0 wins
+    [50, 30, 0, 0],
+    [50, 0, undefined, 0],
+    [0, undefined, undefined, 0],
+  ] as const
+  test.each(
+    (['intent', 'viewport'] as const).flatMap((strategy) =>
+      cases.map((c) => [strategy, ...c] as const),
+    ),
+  )(
+    '%s: router %s, strategy %s, link %s waits %s',
+    async (strategy, routerDelay, strategyDelay, linkDelay, wait) => {
+      const { preload, mount } = setup({ defaultPreloadDelay: routerDelay })
+      const preloadOption =
+        strategy === 'intent'
+          ? intentPreload({ delay: strategyDelay })
+          : viewportPreload({ delay: strategyDelay })
+      mount(
+        <Link to="/target" preload={preloadOption} preloadDelay={linkDelay}>
+          Target
+        </Link>,
+      )
+      const link = screen.getByRole('link')
+      vi.useFakeTimers()
+      if (strategy === 'intent') {
+        fireEvent.mouseEnter(link)
+      } else {
+        intersect(link)
+      }
+      if (wait) {
+        await vi.advanceTimersByTimeAsync(wait - 1)
+        expect(preload).not.toHaveBeenCalled()
+        await vi.advanceTimersByTimeAsync(1)
+      }
+      expect(preload).toHaveBeenCalledTimes(1)
+    },
+  )
+})
+
+describe('intent timer', () => {
+  const mountIntent = () => {
+    const { preload, mount } = setup({ defaultPreloadDelay: 50 })
+    mount(
+      <Link to="/target" preload="intent">
+        Target
+      </Link>,
+    )
+    vi.useFakeTimers()
+    return { preload, link: screen.getByRole('link') }
+  }
+
+  test('hover then focus starts one timer', async () => {
+    const { preload, link } = mountIntent()
+    fireEvent.mouseEnter(link)
+    await vi.advanceTimersByTimeAsync(20)
+    fireEvent.focus(link)
+    await vi.advanceTimersByTimeAsync(29)
+    expect(preload).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(preload).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(50)
+    expect(preload).toHaveBeenCalledTimes(1)
+  })
+
+  test('focus then blur cancels', async () => {
+    const { preload, link } = mountIntent()
+    fireEvent.focus(link)
+    await vi.advanceTimersByTimeAsync(20)
+    fireEvent.blur(link)
+    await vi.advanceTimersByTimeAsync(50)
+    expect(preload).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  test('keyboard focus (element.focus()) preloads', async () => {
+    const { preload, link } = mountIntent()
+    act(() => link.focus())
+    await vi.advanceTimersByTimeAsync(50)
+    expect(preload).toHaveBeenCalledTimes(1)
+  })
+
+  test("preventDefault() in the Link's own handlers doesn't stop it, and they are still called", () => {
+    const { preload, mount } = setup()
+    const handlers = {
+      onMouseEnter: vi.fn((e: React.SyntheticEvent) => e.preventDefault()),
+      onFocus: vi.fn((e: React.SyntheticEvent) => e.preventDefault()),
+      onTouchStart: vi.fn((e: React.SyntheticEvent) => e.preventDefault()),
+    }
+    mount(
+      <Link to="/target" preload="intent" preloadDelay={0} {...handlers}>
+        Target
+      </Link>,
+    )
+    const link = screen.getByRole('link')
+    fireEvent.mouseEnter(link)
+    fireEvent.focus(link)
+    fireEvent.touchStart(link)
+    expect(handlers.onMouseEnter).toHaveBeenCalledTimes(1)
+    expect(handlers.onFocus).toHaveBeenCalledTimes(1)
+    expect(handlers.onTouchStart).toHaveBeenCalledTimes(1)
+    expect(preload).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe('viewport', () => {
+  test('without IntersectionObserver: no error, no listeners, no preload; intent still works', () => {
+    vi.stubGlobal('IntersectionObserver', undefined)
+    const add = [
+      vi.spyOn(Element.prototype, 'addEventListener'),
+      vi.spyOn(document, 'addEventListener'),
+      vi.spyOn(window, 'addEventListener'),
+    ]
+    const { preload, mount } = setup({ defaultPreloadDelay: 0 })
+    mount(
+      <>
+        <Link to="/a" preload="viewport">
+          a
+        </Link>
+        <Link to="/b" preload={batchedViewportPreload()}>
+          b
+        </Link>
+        <Link to="/c" preload="intent">
+          c
+        </Link>
+      </>,
+    )
+    const [a, b, c] = screen.getAllByRole('link')
+    for (const element of [a, b]) {
+      expect(listenerCalls(add[0]!, element!)).toEqual([])
+    }
+    const pageTypes = [...add[1]!.mock.calls, ...add[2]!.mock.calls].map(
+      ([type]) => type,
+    )
+    expect(pageTypes).not.toContain('scroll')
+    expect(pageTypes).not.toContain('resize')
+    fireEvent.mouseEnter(a!)
+    fireEvent.mouseEnter(b!)
+    expect(preload).not.toHaveBeenCalled()
+    fireEvent.mouseEnter(c!)
+    expect(preload).toHaveBeenCalledTimes(1)
+  })
+
+  test('unmounting with a pending preload disconnects and leaves no timer', async () => {
+    const disconnect = vi.spyOn(IntersectionObserver.prototype, 'disconnect')
+    const { preload, mount } = setup({ defaultPreloadDelay: 50 })
+    const view = mount(
+      <Link to="/target" preload="viewport">
+        Target
+      </Link>,
+    )
+    vi.useFakeTimers()
+    intersect(screen.getByRole('link'))
+    expect(vi.getTimerCount()).toBe(1)
+    view.unmount()
+    expect(disconnect).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+    await vi.advanceTimersByTimeAsync(50)
+    expect(preload).not.toHaveBeenCalled()
+  })
+})
+
+describe('render', () => {
+  test('preloads once per Link across option changes, and again for a new Link', () => {
+    const { preload, mount } = setup()
+    let update!: (next: { to?: string; preload?: PreloadOption }) => void
+    let remount!: () => void
+    function App() {
+      const [options, setOptions] = React.useState<{
+        to: string
+        preload: PreloadOption
+      }>({ to: '/a', preload: 'render' })
+      const [key, setKey] = React.useState(0)
+      update = (next) => setOptions((prev) => ({ ...prev, ...next }))
+      remount = () => setKey((k) => k + 1)
+      return (
+        <Link key={key} to={options.to} preload={options.preload}>
+          Target
+        </Link>
+      )
+    }
+    mount(<App />)
+    expect(preload).toHaveBeenCalledTimes(1)
+    act(() => update({ to: '/b' }))
+    act(() => update({ preload: false }))
+    act(() => update({ preload: 'render' }))
+    act(() => update({ preload: renderPreload() }))
+    expect(preload).toHaveBeenCalledTimes(1)
+    act(() => remount())
+    expect(preload).toHaveBeenCalledTimes(2)
+    expect(preload).toHaveBeenLastCalledWith(
+      expect.objectContaining({ to: '/b' }),
+    )
+  })
+})
+
+describe('createLink', () => {
+  test('a component that drops the ref gets no preloading, and nothing throws', () => {
+    const { preload, mount } = setup()
+    const NoRefLink = createLink(function NoRef(props: any) {
+      const { ref: _ref, ...rest } = props
+      return <a {...rest} />
+    })
+    mount(
+      <NoRefLink to="/target" preload="intent" preloadDelay={0}>
+        Target
+      </NoRefLink>,
+    )
+    fireEvent.mouseEnter(screen.getByRole('link'))
+    expect(preload).not.toHaveBeenCalled()
+  })
+
+  test('a component that forwards the ref preloads', () => {
+    const { preload, mount } = setup()
+    const RefLink = createLink(
+      React.forwardRef<HTMLAnchorElement, any>(function WithRef(props, ref) {
+        return <a ref={ref} {...props} />
+      }),
+    )
+    mount(
+      <RefLink to="/target" preload="intent" preloadDelay={0}>
+        Target
+      </RefLink>,
+    )
+    fireEvent.mouseEnter(screen.getByRole('link'))
+    expect(preload).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('batchedViewportPreload() batches', () => {
+  // Links `ids` on `router`, with a setter to hide some of them
+  function Links({ ids }: { ids: Array<string> }) {
+    const [hidden, setHidden] = React.useState<Array<string>>([])
+    hide = (id) => ReactDOM.flushSync(() => setHidden((h) => [...h, id]))
+    return (
+      <>
+        {ids
+          .filter((id) => !hidden.includes(id))
+          .map((id) => (
+            <Link key={id} to={`/${id}`}>
+              {id}
+            </Link>
+          ))}
+      </>
+    )
+  }
+  let hide: (id: string) => void
+  const preloaded = (preload: { mock: { calls: Array<Array<unknown>> } }) =>
+    preload.mock.calls.map(([options]) => (options as { to: string }).to)
+
+  test('two routers on a page batch independently', async () => {
+    const first = setup({
+      defaultPreload: batchedViewportPreload(),
+      defaultPreloadDelay: 30,
+    })
+    const second = setup({
+      defaultPreload: batchedViewportPreload(),
+      defaultPreloadDelay: 60,
+    })
+    render(
+      <>
+        <RouterContextProvider router={first.router}>
+          <Link to="/one">one</Link>
+        </RouterContextProvider>
+        <RouterContextProvider router={second.router}>
+          <Link to="/two">two</Link>
+        </RouterContextProvider>
+      </>,
+    )
+    vi.useFakeTimers()
+    intersect(screen.getByRole('link', { name: 'one' }))
+    intersect(screen.getByRole('link', { name: 'two' }))
+    await vi.advanceTimersByTimeAsync(30)
+    expect(preloaded(first.preload)).toEqual(['/one'])
+    expect(second.preload).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(30)
+    expect(preloaded(second.preload)).toEqual(['/two'])
+    expect(first.preload).toHaveBeenCalledTimes(1)
+  })
+
+  test('unmounting some links keeps the batch for the others', async () => {
+    const { preload, mount } = setup({
+      defaultPreload: batchedViewportPreload(),
+      defaultPreloadDelay: 50,
+    })
+    mount(<Links ids={['a', 'b', 'c']} />)
+    vi.useFakeTimers()
+    for (const link of screen.getAllByRole('link')) {
+      intersect(link)
+    }
+    act(() => hide('b'))
+    expect(observed.size).toBe(2)
+    await vi.advanceTimersByTimeAsync(50)
+    expect(preloaded(preload)).toEqual(['/a', '/c'])
+  })
+
+  test('an entry that arrives after its link is gone is ignored', async () => {
+    const { preload, mount } = setup({
+      defaultPreload: batchedViewportPreload(),
+      defaultPreloadDelay: 50,
+    })
+    mount(<Links ids={['a', 'b']} />)
+    vi.useFakeTimers()
+    const b = screen.getByRole('link', { name: 'b' })
+    const callback = observed.get(b)!
+    act(() => hide('b'))
+    act(() => {
+      callback(
+        [
+          {
+            isIntersecting: true,
+            target: b,
+          } as unknown as IntersectionObserverEntry,
+        ],
+        {} as IntersectionObserver,
+      )
+    })
+    expect(vi.getTimerCount()).toBe(0)
+    await vi.advanceTimersByTimeAsync(50)
+    expect(preload).not.toHaveBeenCalled()
+  })
+
+  test('a preload that unmounts another queued link skips it', async () => {
+    const { preload, mount } = setup({
+      defaultPreload: batchedViewportPreload(),
+      defaultPreloadDelay: 50,
+    })
+    preload.mockImplementation((options: any) => {
+      if (options.to === '/a') {
+        hide('b')
+      }
+      return Promise.resolve(undefined)
+    })
+    mount(<Links ids={['a', 'b', 'c']} />)
+    vi.useFakeTimers()
+    for (const link of screen.getAllByRole('link')) {
+      intersect(link)
+    }
+    await vi.advanceTimersByTimeAsync(50)
+    expect(preloaded(preload)).toEqual(['/a', '/c'])
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

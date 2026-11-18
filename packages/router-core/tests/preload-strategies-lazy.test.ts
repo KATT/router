@@ -46,10 +46,17 @@ test('a failed load warns once, and the next string-mode Link loads again', asyn
   expect(first.preload).not.toHaveBeenCalled()
   expect(second.preload).not.toHaveBeenCalled()
 
+  // Many Links mount before the next load: one import, and each one still
+  // mounted starts
   const third = mountLink('render')
+  const fourth = mountLink('render')
+  const gone = mountLink('render')
+  gone.stop?.()
   await settle()
   expect(chunk.imports).toBe(2)
   expect(third.preload).toHaveBeenCalledTimes(1)
+  expect(fourth.preload).toHaveBeenCalledTimes(1)
+  expect(gone.preload).not.toHaveBeenCalled()
   expect(warn).toHaveBeenCalledTimes(1)
   expect(unhandled).not.toHaveBeenCalled()
   await expect(loadPreloadStrings()).resolves.toBeDefined()
