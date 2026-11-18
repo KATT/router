@@ -4,20 +4,21 @@ import type { AnyRouter } from '../router'
 // it is in their chunk: the `'intent'` and `'viewport'` chunks share it from
 // there, not from a chunk of their own that each would also have to load.
 
-// What a Link's strategy runs when the Link navigates on a click, by the
-// Link's ref. Only the Link knows whether a click navigates: not one with a
+// A Link's ref also holds what its strategy runs when the Link navigates on a
+// click (`c`). Only the Link knows whether a click navigates: not one with a
 // modifier key, another button or target, or that a handler prevented.
-const onClick = new WeakMap<object, () => void>()
+type ClickRef = { c?: () => void }
 
 /**
  * Until the returned cleanup, `cancel` runs when the Link with this ref
  * navigates on a click, before it navigates.
  */
 export function onNavigatingClick(ref: object, cancel: () => void) {
-  onClick.set(ref, cancel)
+  const link = ref as ClickRef
+  link.c = cancel
   return () => {
-    if (onClick.get(ref) === cancel) {
-      onClick.delete(ref)
+    if (link.c === cancel) {
+      link.c = undefined
     }
   }
 }
@@ -28,7 +29,7 @@ export function onNavigatingClick(ref: object, cancel: () => void) {
  * @internal
  */
 export function linkNavigatingClick(ref: object) {
-  onClick.get(ref)?.()
+  ;(ref as ClickRef).c?.()
 }
 
 /**
