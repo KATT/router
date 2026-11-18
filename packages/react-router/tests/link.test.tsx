@@ -22,8 +22,7 @@ import {
 } from '@testing-library/react'
 
 import { z } from 'zod'
-import { trailingSlashOptions } from '@tanstack/router-core'
-import { loadPreloadStrings } from '@tanstack/router-core/preload-string'
+import { loadPreloadStrings, trailingSlashOptions } from '@tanstack/router-core'
 import {
   Link,
   Outlet,

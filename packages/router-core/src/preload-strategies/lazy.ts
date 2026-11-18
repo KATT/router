@@ -1,9 +1,9 @@
 import type * as BuiltinsModule from './builtins'
 import type { PreloadMode, PreloadStrategy } from './types'
 
-// `@tanstack/router-core/preload-string`: how Links run a `preload` string.
-// The bundler plugin's strict mode (`compilePreloadStrings: 'strict'`)
-// replaces this module with `./strict`, so its chunk is never emitted.
+// How Links run a `preload` string. Strings the bundler plugin's
+// `compilePreloadStrings` rewrote never get here; any other string loads the
+// built-in strategies from their own chunk.
 
 type Builtins = typeof BuiltinsModule
 

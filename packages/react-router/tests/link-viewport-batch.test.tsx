@@ -9,7 +9,7 @@ import {
   vi,
 } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { loadPreloadStrings } from '@tanstack/router-core/preload-string'
+import { loadPreloadStrings } from '@tanstack/router-core'
 import {
   Link,
   RouterProvider,

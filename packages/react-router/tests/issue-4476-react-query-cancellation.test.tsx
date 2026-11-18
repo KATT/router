@@ -11,7 +11,7 @@ import {
   useQuery,
 } from '@tanstack/react-query'
 import { afterEach, beforeAll, expect, onTestFinished, test, vi } from 'vitest'
-import { loadPreloadStrings } from '@tanstack/router-core/preload-string'
+import { loadPreloadStrings } from '@tanstack/router-core'
 import {
   Link,
   Outlet,

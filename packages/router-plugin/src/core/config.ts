@@ -112,19 +112,13 @@ export const configSchema = generatorConfigSchema.extend({
        * strategies they stand for, eg. `<Link preload="intent" />` to
        * `<Link preload={intentPreload()} />` and `defaultPreload: 'viewport'`
        * to `defaultPreload: viewportPreload()`. The app then ships only the
-       * strategies it uses, and Links don't load them on demand. React only.
-       *
-       * `'strict'` also promises that every `preload` string in the app is a
-       * literal the plugin rewrote, so Links drop the code that loads the
-       * strategies for strings on demand (Vite, webpack and Rspack). A string
-       * that reaches a Link at runtime then doesn't preload, and warns in
-       * development.
+       * strategies it uses, and Links don't load them on demand. Strings the
+       * plugin can't see, eg. from a variable or a library, still load the
+       * strategies on demand. React only.
        * @experimental
        * @default false
        */
-      compilePreloadStrings: z
-        .union([z.boolean(), z.literal('strict')])
-        .optional(),
+      compilePreloadStrings: z.boolean().optional(),
     })
     .optional(),
 })

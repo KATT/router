@@ -9,10 +9,10 @@ import {
   createRouter,
 } from '../src'
 
-// Without the bundler plugin's strict mode, Links load the strategies for
-// `preload` strings on demand. Each test file gets its own modules, so they
-// are not loaded when this file starts. The tests run in order on purpose:
-// the first one sees the strategies before they load.
+// Links load the strategies for `preload` strings on demand. Each test file
+// gets its own modules, so they are not loaded when this file starts. The
+// tests run in order on purpose: the first one sees the strategies before
+// they load.
 
 afterEach(cleanup)
 

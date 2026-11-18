@@ -49,8 +49,6 @@ export default mergeConfig(
       './src/isServer/server.ts',
       './src/isServer/client.ts',
       './src/isServer/development.ts',
-      './src/preload-strategies/lazy.ts',
-      './src/preload-strategies/strict.ts',
     ],
     srcDir: './src',
     externalDeps: ['@tanstack/router-core/isServer'],

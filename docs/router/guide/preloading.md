@@ -215,25 +215,9 @@ const link = <Link to="/posts" preload={intentPreload()} />
 - Strings it can't see as literals, such as `preload={mode}`, strings from a library, or options built at run time, still load their strategy on demand. That's why the on-demand chunk is always emitted: the build can't prove that no string reaches a Link.
 - It's for React only, and the option is in `tanstackRouter()`. TanStack Start's plugin doesn't pass it on yet.
 
-#### Strict mode
+#### Bundle size
 
-> **Experimental:** This is experimental and subject to change.
-
-`compilePreloadStrings: 'strict'` rewrites the strings the same way, and is also your promise that every `preload` string in your app is a literal the plugin can see. In return, Links ship no code to load the strategies on demand: no on-demand chunk, no dynamic import, nothing for strings but a check that warns.
-
-```ts
-tanstackRouter({
-  target: 'react',
-  experimental: { compilePreloadStrings: 'strict' },
-})
-```
-
-How it works: Links run strings through `@tanstack/react-router`'s dependency `@tanstack/router-core/preload-string`, which loads the strategies on demand. In strict mode the plugin aliases that module to `@tanstack/router-core/preload-string/strict`, a stub. The alias works in Vite (build and dev, including pre-bundled dependencies), webpack and Rspack.
-
-If you break the promise, the string does nothing:
-
-- A string that reaches a Link at runtime, such as `preload={mode}` or a string from a library, doesn't preload. In development it warns once per string; in production it's silent.
-- Use the strategy instead (`preload={mode === 'intent' ? intentPreload() : viewportPreload()}`), or turn strict mode off.
+Links carry no code for the strings, so the JS every visitor downloads up front (the initial JS) only has the strategies the app imports, with or without the plugin, and is smaller than in versions where Links handled the strings themselves. The on-demand chunk with the built-ins is still emitted to your build output, so the total size of all emitted files grows a little, but a visitor only downloads it when a string the plugin couldn't see reaches a Link.
 
 ## Built-in Preloading, Freshness, and Retention
 

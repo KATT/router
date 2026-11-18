@@ -7,7 +7,7 @@ import {
   waitFor,
 } from '@testing-library/react'
 import { afterEach, beforeAll, expect, test, vi } from 'vitest'
-import { loadPreloadStrings } from '@tanstack/router-core/preload-string'
+import { loadPreloadStrings } from '@tanstack/router-core'
 import {
   Link,
   Outlet,

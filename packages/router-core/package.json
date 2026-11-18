@@ -168,26 +168,6 @@
         "default": "./dist/cjs/scroll-restoration-script/server.cjs"
       }
     },
-    "./preload-string": {
-      "import": {
-        "types": "./dist/esm/preload-strategies/lazy.d.ts",
-        "default": "./dist/esm/preload-strategies/lazy.js"
-      },
-      "require": {
-        "types": "./dist/cjs/preload-strategies/lazy.d.cts",
-        "default": "./dist/cjs/preload-strategies/lazy.cjs"
-      }
-    },
-    "./preload-string/strict": {
-      "import": {
-        "types": "./dist/esm/preload-strategies/strict.d.ts",
-        "default": "./dist/esm/preload-strategies/strict.js"
-      },
-      "require": {
-        "types": "./dist/cjs/preload-strategies/strict.d.cts",
-        "default": "./dist/cjs/preload-strategies/strict.cjs"
-      }
-    },
     "./package.json": "./package.json"
   },
   "sideEffects": false,

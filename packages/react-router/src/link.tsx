@@ -6,11 +6,11 @@ import {
   functionalUpdate,
   getUrlScheme,
   isDangerousProtocol,
+  preloadString,
   preloadWarning,
   removeTrailingSlash,
 } from '@tanstack/router-core'
 import { isServer } from '@tanstack/router-core/isServer'
-import { preloadString } from '@tanstack/router-core/preload-string'
 import { useRouter } from './useRouter'
 import { createLinkScope, matchContext } from './matchContext'
 
@@ -350,9 +350,8 @@ export function useLinkProps<
       : (userPreload ?? router.options.defaultPreload)
 
   // Preloading is up to a strategy: it listens to or observes the element
-  // itself and returns a cleanup. A string goes through
-  // `@tanstack/router-core/preload-string`, which loads the built-in
-  // strategies on demand, or, in the bundler plugin's strict mode, is a stub.
+  // itself and returns a cleanup. A string goes through `preloadString`, which
+  // loads the built-in strategies on demand.
   // eslint-disable-next-line react-hooks/rules-of-hooks
   React.useEffect(() => {
     if (preload) {

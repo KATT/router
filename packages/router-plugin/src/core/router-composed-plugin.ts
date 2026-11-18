@@ -93,14 +93,11 @@ export const unpluginRouterComposedFactory: UnpluginFactory<
   const pluginOptions = (
     typeof options === 'function' ? options() : options
   ) as Partial<Config>
-  const compilePreloadStrings =
-    pluginOptions.experimental?.compilePreloadStrings
-  if (compilePreloadStrings && userConfig.target === 'react') {
-    result.push(
-      createRouterPreloadStringsPlugin({
-        strict: compilePreloadStrings === 'strict',
-      }),
-    )
+  if (
+    pluginOptions.experimental?.compilePreloadStrings &&
+    userConfig.target === 'react'
+  ) {
+    result.push(createRouterPreloadStringsPlugin())
   }
   if (userConfig.autoCodeSplitting) {
     result.push(...routerCodeSplitter)
