@@ -244,8 +244,8 @@ export interface RouterOptions<
   /**
    * Decides when viewport preloads run. Without it, each link runs its own
    * `preloadDelay` timer. Pass `batchViewportPreloads()` to share one timer
-   * that restarts on every intersection change, then preloads all links still
-   * in view in the same tick.
+   * that restarts on every intersection change, scroll and resize, then
+   * preloads all links still in view in the same tick.
    *
    * @default undefined
    * @link [Guide](https://tanstack.com/router/latest/docs/framework/react/guide/preloading#batching-viewport-preloads)

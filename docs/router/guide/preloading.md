@@ -110,7 +110,7 @@ const router = createRouter({
 ```
 
 - A link that enters the viewport is queued. A link that leaves before the flush is dropped.
-- Every time a link enters or leaves the viewport, the timer restarts with that link's `preloadDelay`, so nothing preloads while the user keeps scrolling.
+- Every time a link enters or leaves the viewport, the timer restarts with that link's `preloadDelay`. Every scroll (of the page or any container) and resize restarts it too, so nothing preloads until the page has settled.
 - When the timer fires, every queued link preloads in the same tick.
 
 This helps data layers that batch requests per tick, such as tRPC's batch links or DataLoader, send one request per screenful instead of one per link. A link that comes back into view is queued again, and the router's usual staleness rules decide whether its loaders run. Hover, focus, and touch preloading are not affected.

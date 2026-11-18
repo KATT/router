@@ -65,7 +65,7 @@ The `RouterOptions` type accepts an object with the following properties and met
 
 - Type: `(link: object, preload?: () => void, delay?: number) => void`
 - Optional
-- Decides when viewport preloads run. Without it, each link runs its own `preloadDelay` timer. Pass `batchViewportPreloads()` to share one timer that restarts on every intersection change, then preloads every link still in view in the same tick. See [Batching Viewport Preloads](../../guide/preloading.md#batching-viewport-preloads).
+- Decides when viewport preloads run. Without it, each link runs its own `preloadDelay` timer. Pass `batchViewportPreloads()` to share one timer that restarts on every intersection change, scroll and resize, then preloads every link still in view in the same tick. See [Batching Viewport Preloads](../../guide/preloading.md#batching-viewport-preloads).
 
 ### `defaultComponent` property
 

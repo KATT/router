@@ -139,7 +139,7 @@ describe('defaultPreloadViewportScheduler: batchViewportPreloads()', () => {
     expect(preloads.map(([id]) => id)).toEqual(['b'])
   })
 
-  test('scrolling keeps restarting the delay', async () => {
+  test('intersection changes keep restarting the delay', async () => {
     const { preloads, scroll } = await setup({ batch: true })
 
     scroll('a', true)
@@ -151,6 +151,24 @@ describe('defaultPreloadViewportScheduler: batchViewportPreloads()', () => {
 
     await vi.advanceTimersByTimeAsync(50)
     expect(preloads.map(([id]) => id)).toEqual(['a', 'c'])
+  })
+
+  test('scrolling or resizing keeps the batch waiting until the page settles', async () => {
+    const { preloads, scroll } = await setup({ batch: true })
+
+    scroll('a', true)
+    for (let i = 0; i < 5; i++) {
+      await vi.advanceTimersByTimeAsync(40)
+      document.dispatchEvent(new Event('scroll'))
+    }
+    for (let i = 0; i < 3; i++) {
+      await vi.advanceTimersByTimeAsync(40)
+      window.dispatchEvent(new Event('resize'))
+    }
+    expect(preloads).toEqual([])
+
+    await vi.advanceTimersByTimeAsync(50)
+    expect(preloads.map(([id]) => id)).toEqual(['a'])
   })
 
   test('unmounting drops queued links and clears the timer', async () => {

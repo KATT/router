@@ -10,13 +10,37 @@ export type ViewportPreloadScheduler = (
 ) => void
 
 /**
- * One timer for every viewport link: each intersection change restarts it,
- * and when it fires every queued link still in view preloads in the same tick.
+ * One timer for every viewport link. It restarts on each intersection change
+ * and on every scroll or resize, so it only fires once the page has settled;
+ * then every queued link still in view preloads in the same tick.
  */
 export function batchViewportPreloads(): ViewportPreloadScheduler {
   let queue = new Map<object, () => void>()
   let timer: ReturnType<typeof setTimeout> | undefined
+  let wait: number | undefined
+  let listening = false
+
+  const flush = () => {
+    const queued = queue
+    queue = new Map()
+    timer = undefined
+    queued.forEach((run) => run())
+  }
+  const restart = () => {
+    clearTimeout(timer)
+    timer = queue.size ? setTimeout(flush, wait) : undefined
+  }
+
   return (link, preload, delay) => {
+    if (!listening) {
+      listening = true
+      // Capture, so scrolling inside any container counts, not only the page
+      document.addEventListener('scroll', restart, {
+        capture: true,
+        passive: true,
+      })
+      window.addEventListener('resize', restart, { passive: true })
+    }
     if (preload) {
       queue.set(link, preload)
     } else {
@@ -25,14 +49,7 @@ export function batchViewportPreloads(): ViewportPreloadScheduler {
     if (delay === undefined && queue.size) {
       return
     }
-    clearTimeout(timer)
-    timer = queue.size
-      ? setTimeout(() => {
-          const queued = queue
-          queue = new Map()
-          timer = undefined
-          queued.forEach((run) => run())
-        }, delay)
-      : undefined
+    wait = delay ?? wait
+    restart()
   }
 }
