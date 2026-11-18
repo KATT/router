@@ -174,10 +174,10 @@ The router stage is where a strategy reads its options and keeps state its links
 
 > **Experimental:** This is experimental and subject to change.
 
-In React, the strings `'intent'`, `'viewport'` and `'render'` are their built-in strategies. The built-in strategies are a separate chunk: the first Link with a string mode that mounts loads it, once per page, and starts its strategy when it's there. A Link that unmounts before then starts nothing. If the chunk fails to load, the Links waiting for it warn once and don't preload, and the next Link with a string mode that mounts loads it again. Other values, such as `true` or an unknown string, are ignored, with a warning in development. So:
+In React, the strings `'intent'`, `'viewport'` and `'render'` are their built-in strategies. Each one is a separate chunk: the first Link with that string that mounts loads it, once per page, and starts its strategy when it's there. A Link that unmounts before then starts nothing. If the chunk fails to load, the Links waiting for it warn once and don't preload, and the next Link with that string that mounts loads it again. Other values, such as `true` or an unknown string, are ignored, with a warning in development. So:
 
 - An app with no preloading, or with imported strategies only, doesn't download the built-ins.
-- An app that uses the strings downloads them in a second request after the page loads, and its links start preloading once that's done.
+- An app that uses a string downloads only that string's strategy, in a second request after the page loads, and its links start preloading once that's done. An app that uses several strings downloads each one's.
 
 Since strategies listen to the element themselves, a `preventDefault()` in your `onMouseEnter`, `onFocus` or `onTouchStart` handler no longer stops an `'intent'` preload (your handler is still called), and a custom link component made with `createLink` has to pass its `ref` on to the element for `'intent'` to work. If such a component switches to another element, the strategy starts again with the new one. A click still cancels a pending preload only when the Link navigates on it, as before.
 

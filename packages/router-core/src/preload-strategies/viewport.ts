@@ -1,5 +1,4 @@
-import { delayed } from './builtin'
-import { onNavigatingClick } from './click'
+import { delayed, onNavigatingClick } from './click'
 import { memoByOptions } from './memo'
 import type { PreloadStrategy } from './types'
 
@@ -27,36 +26,41 @@ export interface ViewportPreloadOptions {
  * render is fine.
  * @experimental
  */
-export const viewportPreload = /* @__PURE__ */ memoByOptions<
-  ViewportPreloadOptions,
-  PreloadStrategy
->((options) => (router, ref, preload, delay) => {
-  const element = ref.current
-  if (!element || typeof IntersectionObserver !== 'function') {
-    return
+export const viewportPreload = /* @__PURE__ */ memoByOptions(makeViewport)
+
+/**
+ * `viewportPreload` without the memo, for `'viewport'`'s own chunk.
+ * @internal
+ */
+export function makeViewport(options: ViewportPreloadOptions): PreloadStrategy {
+  return (router, ref, preload, delay) => {
+    const element = ref.current
+    if (!element || typeof IntersectionObserver !== 'function') {
+      return
+    }
+    const [start, cancel] = delayed(router, preload, delay ?? options.delay)
+    let active = true
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // The latest entry wins; a queued one can arrive after disconnect()
+        if (!active) {
+          return
+        }
+        if (entries.pop()?.isIntersecting) {
+          start()
+        } else {
+          cancel()
+        }
+      },
+      { rootMargin: options.rootMargin ?? '100px' },
+    )
+    observer.observe(element)
+    const stopClick = onNavigatingClick(ref, cancel)
+    return () => {
+      active = false
+      observer.disconnect()
+      stopClick()
+      cancel()
+    }
   }
-  const [start, cancel] = delayed(router, preload, delay ?? options.delay)
-  let active = true
-  const observer = new IntersectionObserver(
-    (entries) => {
-      // The latest entry wins; a queued one can arrive after disconnect()
-      if (!active) {
-        return
-      }
-      if (entries.pop()?.isIntersecting) {
-        start()
-      } else {
-        cancel()
-      }
-    },
-    { rootMargin: options.rootMargin ?? '100px' },
-  )
-  observer.observe(element)
-  const stopClick = onNavigatingClick(ref, cancel)
-  return () => {
-    active = false
-    observer.disconnect()
-    stopClick()
-    cancel()
-  }
-})
+}
