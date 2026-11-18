@@ -1,6 +1,7 @@
 import type { ClickRef } from './click'
 import { memoByOptions } from './memo'
-import type { PreloadStrategy } from './types'
+import type { AnyRouter } from '../router'
+import type { PreloadRef, PreloadStrategy } from './types'
 
 /** @experimental */
 export interface IntentPreloadOptions {
@@ -22,59 +23,69 @@ export interface IntentPreloadOptions {
  * render is fine.
  * @experimental
  */
-export const intentPreload = /* @__PURE__ */ memoByOptions(makeIntent)
+export const intentPreload = /* @__PURE__ */ memoByOptions(
+  (options: IntentPreloadOptions): PreloadStrategy =>
+    (router, ref, preload, delay) =>
+      intent(router, ref, preload, delay, options),
+)
 
 /**
- * `intentPreload` without the memo, for `'intent'`'s own chunk.
+ * The strategy `'intent'`'s own chunk is: `intentPreload()`, without the memo
+ * or a wrapper. `intentPreload(options)` passes its options as a fifth
+ * argument.
  * @internal
  */
-export function makeIntent(options: IntentPreloadOptions): PreloadStrategy {
-  return (router, ref, preload, delay) => {
-    const element = ref.current
-    if (!element) {
-      return
-    }
-    // The link's own delay, else the strategy's, else the router's. Each
-    // chunk has its own copy: a module the two shared would be a chunk of its
-    // own that each also loads.
-    const wait = delay ?? options.delay ?? router.options.defaultPreloadDelay
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const cancel = () => {
-      clearTimeout(timer)
-      timer = undefined
-    }
-    // Without a delay, preloads at once
-    const start = () =>
-      wait
-        ? (timer ??= setTimeout(() => {
-            timer = undefined
-            preload()
-          }, wait))
-        : preload()
-    // Like React's `onMouseEnter`: moving or focusing between the link's own
-    // children isn't entering or leaving it
-    const within = (event: Event) =>
-      element.contains((event as MouseEvent).relatedTarget as Node | null)
-    const listeners: Record<string, (event: Event) => void> = {
-      mouseover: (event) => within(event) || start(),
-      focusin: (event) => within(event) || start(),
-      mouseleave: cancel,
-      focusout: (event) => within(event) || cancel(),
-      touchstart: preload,
-    }
+export function intent(
+  router: AnyRouter,
+  ref: PreloadRef,
+  preload: () => void,
+  delay: number | undefined,
+  options: IntentPreloadOptions = {},
+): ReturnType<PreloadStrategy> {
+  const element = ref.current
+  if (!element) {
+    return
+  }
+  // The link's own delay, else the strategy's, else the router's. Each
+  // chunk has its own copy: a module the two shared would be a chunk of its
+  // own that each also loads.
+  const wait = delay ?? options.delay ?? router.options.defaultPreloadDelay
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const cancel = () => {
+    clearTimeout(timer)
+    timer = undefined
+  }
+  // Without a delay, preloads at once
+  const start = () =>
+    wait
+      ? (timer ??= setTimeout(() => {
+          timer = undefined
+          preload()
+        }, wait))
+      : preload()
+  // Like React's `onMouseEnter`: moving or focusing between the link's own
+  // children isn't entering or leaving it
+  const within = (event: Event) =>
+    element.contains((event as MouseEvent).relatedTarget as Node | null)
+  const listeners: Record<string, (event: Event) => void> = {
+    mouseover: (event) => within(event) || start(),
+    focusin: (event) => within(event) || start(),
+    mouseleave: cancel,
+    focusout: (event) => within(event) || cancel(),
+    touchstart: preload,
+  }
+  for (const type in listeners) {
+    element.addEventListener(type, listeners[type]!, { passive: true })
+  }
+  ;(ref as ClickRef).c = cancel
+  // Focused before the listeners, eg. `autoFocus` or a parent's layout effect
+  if (element.contains(document.activeElement)) {
+    start()
+  }
+  return () => {
     for (const type in listeners) {
-      element.addEventListener(type, listeners[type]!, { passive: true })
+      element.removeEventListener(type, listeners[type]!)
     }
-    ;(ref as ClickRef).c = cancel
-    // Focused before the listeners, eg. `autoFocus` or a parent's layout effect
-    if (element.contains(document.activeElement)) {
-      start()
-    }
-    return () => {
-      for (const type in listeners) {
-        element.removeEventListener(type, listeners[type]!)
-      }
-      cancel()
-    }
+    cancel()
   }
 }

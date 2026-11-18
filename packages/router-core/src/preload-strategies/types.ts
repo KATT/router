@@ -30,6 +30,12 @@ export interface PreloadLink {
 export type LinkPreloader = (link: PreloadLink) => (() => void) | void
 
 /**
+ * A Link's own ref, as its strategy gets it: the same object for the Link's
+ * whole life.
+ */
+export type PreloadRef = { readonly current: Element | null }
+
+/**
  * Decides when Links preload. Make one with `createPreloadStrategy`, or use
  * a built-in one: `intentPreload()`, `viewportPreload()` or `renderPreload()`.
  *
@@ -40,7 +46,7 @@ export type LinkPreloader = (link: PreloadLink) => (() => void) | void
  */
 export type PreloadStrategy = (
   router: AnyRouter,
-  ref: { readonly current: Element | null },
+  ref: PreloadRef,
   preload: () => void,
   delay: number | undefined,
 ) => (() => void) | void
