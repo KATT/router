@@ -5,7 +5,7 @@ export { intentPreload } from './intent'
 export { renderPreload } from './render'
 export { viewportPreload } from './viewport'
 export { createPreloadStrategy } from './shared'
-export { loadPreloadString, loadPreloadStrings, preloadString } from './lazy'
+export { stringStrategy } from './strings'
 export type { BatchedViewportPreloadOptions } from './batched-viewport'
 export type { IntentPreloadOptions, IntentTag } from './intent'
 export type { ViewportPreloadOptions } from './viewport'
@@ -22,9 +22,8 @@ export type {
  * built-in strategy with default options: `'intent'` is `intentPreload()`,
  * `'viewport'` is `viewportPreload()` and `'render'` is `renderPreload()`.
  * A React Link runs `'intent'` (and `intentPreload(options)`) itself, through
- * its element's event props, and loads `'viewport'`'s strategy on demand, so
- * only apps that use it ship it; the bundler plugin's `compilePreloadStrings`
- * rewrites literal strings to imports of their strategies.
+ * its element's event props, and the other strings' strategies are bundled
+ * with it.
  * @experimental
  */
 export type PreloadOption = false | PreloadMode | PreloadStrategy

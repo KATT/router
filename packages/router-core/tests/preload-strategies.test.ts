@@ -3,42 +3,12 @@ import {
   batchedViewportPreload,
   createPreloadStrategy,
   intentPreload,
-  preloadString,
   viewportPreload,
 } from '../src'
 import type { AnyRouter } from '../src'
 
 afterEach(() => {
   vi.restoreAllMocks()
-})
-
-// Runs first, while the built-ins aren't loaded
-test('an unknown preload string is ignored, before and after the load', async () => {
-  const unhandled = vi.fn()
-  process.on('unhandledRejection', unhandled)
-  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-  // What a Link with this string does as it mounts
-  const mountLink = () => {
-    const preload = vi.fn()
-    preloadString('hover' as never)(
-      {} as AnyRouter,
-      { current: document.createElement('a') },
-      preload,
-      undefined,
-    )
-    return preload
-  }
-
-  const before = mountLink()
-  await new Promise((resolve) => setTimeout(resolve, 10))
-  expect(before).not.toHaveBeenCalled()
-  expect(warn).toHaveBeenCalledWith(expect.stringContaining('hover'))
-
-  warn.mockClear()
-  expect(mountLink()).not.toHaveBeenCalled()
-  expect(warn).toHaveBeenCalledWith(expect.stringContaining('hover'))
-  expect(unhandled).not.toHaveBeenCalled()
-  process.off('unhandledRejection', unhandled)
 })
 
 describe('the same options give the same strategy', () => {

@@ -1,16 +1,7 @@
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import {
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  test,
-  vi,
-} from 'vitest'
-import { loadPreloadStrings } from '@tanstack/router-core'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import {
   Link,
   RouterContextProvider,
@@ -24,12 +15,6 @@ import {
   viewportPreload,
 } from '../src'
 import type { PreloadOption, RouterOptions } from '../src'
-
-// String modes load their strategies on demand: load them up front, so
-// events fired right after a render reach them.
-beforeAll(async () => {
-  await loadPreloadStrings()
-})
 
 // One callback per observed element
 let observed: Map<Element, IntersectionObserverCallback>
