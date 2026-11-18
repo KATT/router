@@ -51,6 +51,10 @@ function createViewportPreloader({ delay = 100, rootMargin = '100px' } = {}) {
   }
 }
 
+// One preloader for the whole page: every link shares its observer, queue and
+// debounce timer, so links that scroll in at different times still flush
+// together. Created on first use, which is always in the browser (a ref
+// callback), so the server never shares one between requests.
 let preloader: ReturnType<typeof createViewportPreloader> | undefined
 
 /**
