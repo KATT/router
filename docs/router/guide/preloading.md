@@ -130,7 +130,7 @@ In React, `preload` and `defaultPreload` also take a strategy, which decides whe
 | `'viewport'` | `viewportPreload({ delay, rootMargin })` |
 | `'render'`   | `renderPreload()`                        |
 
-Links don't have their own code for the strings: a string loads its strategy on demand. See [Strings Load Their Strategy On Demand](#strings-load-their-strategy-on-demand).
+Links don't have their own code for the strings: each string loads only its own strategy, on demand, unless the bundler plugin rewrote it. See [Strings Load Their Strategy On Demand](#strings-load-their-strategy-on-demand).
 
 For a delay, a link's own `preloadDelay` wins, then the options passed to the strategy, then `defaultPreloadDelay` (except for `batchedViewportPreload()`, whose shared timer ignores links' own `preloadDelay`). `rootMargin` defaults to `'100px'`.
 
@@ -216,7 +216,7 @@ const link = <Link to="/posts" preload={intentPreload()} />
 - It only rewrites the router's own options, and only literals of the three strings (`'intent'`, `'intent' as const` and the like): the `preload` prop of `<Link>` and of components `createLink` makes in the same file, `<RouterProvider defaultPreload>`, `defaultPreload` in `createRouter({...})`, and `preload` in `linkOptions({...})` (or an array of them) and `useLinkProps({...})`. These must be imported from `@tanstack/react-router`, by name or as a namespace (`Router.createRouter(...)`).
 - Everything else keeps its strings: other objects, such as a loader's or a server function's data, elements like `<video>`, member and namespaced names like `<motion.video>` or `<Router.Link>`, and your own wrapper components, such as a `MyLink` imported from another file.
 - It looks at your own JavaScript and TypeScript files that import `@tanstack/react-router`, not at `node_modules`, and not at MDX, Vue or HTML files. Files it can't parse are left as they are, for your bundler to report.
-- Strings it can't see as literals, such as `preload={mode}`, strings from a library, or options built at run time, still load their strategy on demand. That's why the on-demand chunk is always emitted: the build can't prove that no string reaches a Link.
+- Strings it can't see as literals, such as `preload={mode}`, strings from a library, or options built at run time, still load their strategy on demand, with its default options. That's why the three per-string chunks are always emitted: the build can't prove that no string reaches a Link.
 - It's for React only. Set it in `tanstackRouter()`, `tsr.config.json`, or with TanStack Start, in `tanstackStart({ router: { experimental: { compilePreloadStrings: true } } })`.
 
 Instead of `true`, you can pass options for the strategies the strings are rewritten to. The plugin writes them into the code at build time, so they cost nothing at runtime:
@@ -250,7 +250,7 @@ const link = (
 
 #### Bundle size
 
-Links carry no code for the strings, so the JS every visitor downloads up front (the initial JS) only has the strategies the app imports, with or without the plugin, and is smaller than in versions where Links handled the strings themselves. The on-demand chunk with the built-ins is still emitted to your build output, so the total size of all emitted files grows a little, but a visitor only downloads it when a string the plugin couldn't see reaches a Link.
+Links carry no code for the strings, so the JS every visitor downloads up front (the initial JS) has a small loader for them plus the strategies the app imports, with or without the plugin. Each string's strategy is its own small chunk, so a page downloads only the strings its Links use, and with the plugin, none of the strings it rewrote. The three chunks are still emitted to your build output, so the total size of all emitted files grows a little, but a visitor only downloads one when a string the plugin couldn't see reaches a Link.
 
 ## Built-in Preloading, Freshness, and Retention
 
