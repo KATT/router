@@ -5,36 +5,33 @@ import type { PreloadMode, PreloadStrategy } from './types'
 // built-in strategy from that strategy's own chunk, so a page loads only the
 // strings its Links use.
 
-// Imports a string's chunk; `undefined` for other strings
-const importString = (mode: string) =>
-  mode === 'intent'
-    ? import('./strings/intent')
-    : mode === 'viewport'
-      ? import('./strings/viewport')
-      : mode === 'render'
-        ? import('./strings/render')
-        : undefined
-
 // Each string's strategy once loaded, else its load, from its first Link
-// until the load fails
-const modes = new Map<string, PreloadStrategy | Promise<unknown>>()
+// until the load fails. Other strings have none. No prototype: a string such
+// as `'toString'` is just another unknown one.
+const modes: Record<
+  string,
+  PreloadStrategy | Promise<PreloadStrategy> | undefined
+> = Object.create(null)
 
-const load = (mode: string) => {
-  let state = modes.get(mode)
-  if (!state) {
-    state = importString(mode)?.then(
-      (module) => modes.set(mode, module.strategy),
-      (error) => {
-        modes.delete(mode)
-        throw error
-      },
-    )
-    if (state) {
-      modes.set(mode, state)
-    }
-  }
-  return state
-}
+const load = (mode: string) =>
+  (modes[mode] ??= (
+    mode === 'intent'
+      ? import('./strings/intent')
+      : mode === 'viewport'
+        ? import('./strings/viewport')
+        : mode === 'render'
+          ? import('./strings/render')
+          : undefined
+  )?.then(
+    (module) => (modes[mode] = module.strategy),
+    // Once per failed load, however many Links wait on it; the next Link
+    // with the string loads again
+    (error) => {
+      modes[mode] = undefined
+      console.warn(error)
+      throw error
+    },
+  ))
 
 /**
  * Loads the strategy a `preload` string stands for (every string's, without
@@ -48,9 +45,6 @@ export function loadPreloadStrings(mode?: PreloadMode): Promise<unknown> {
   )
 }
 
-// The links waiting on a load that failed warn once for all of them
-let failed: unknown
-
 /**
  * The strategy for a `preload` string: `'intent'` is `intentPreload()`,
  * `'viewport'` is `viewportPreload()` and `'render'` is `renderPreload()`.
@@ -62,32 +56,25 @@ let failed: unknown
  */
 export function preloadString(mode: PreloadMode): PreloadStrategy {
   return (...args) => {
-    const pending = load(mode)
-    if (typeof pending === 'function') {
-      return pending(...args)
+    const state = load(mode)
+    if (typeof state === 'function') {
+      return state(...args)
     }
-    if (!pending) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn(
-          `Unknown preload mode ${JSON.stringify(mode)}: use 'intent', 'viewport', 'render' or a preload strategy`,
-        )
-      }
-      return undefined
+    if (process.env.NODE_ENV !== 'production' && !state) {
+      console.warn(
+        `Unknown preload mode ${JSON.stringify(mode)}: use 'intent', 'viewport', 'render' or a preload strategy`,
+      )
     }
     let active = true
     let cleanup: ReturnType<PreloadStrategy>
-    pending.then(
-      () => {
+    state?.then(
+      (strategy) => {
         if (active) {
-          cleanup = (modes.get(mode) as PreloadStrategy)(...args)
+          cleanup = strategy(...args)
         }
       },
-      (error) => {
-        if (failed !== pending) {
-          failed = pending
-          console.warn(error)
-        }
-      },
+      // The load warned
+      () => {},
     )
     return () => {
       active = false
