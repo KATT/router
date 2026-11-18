@@ -1,11 +1,14 @@
 import * as React from 'react'
+import { renderToString } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import {
   Link,
+  RouterContextProvider,
   RouterProvider,
   batchedViewportPreload,
   createMemoryHistory,
+  createPreloadStrategy,
   createRootRoute,
   createRoute,
   createRouter,
@@ -15,11 +18,22 @@ import {
 } from '../src'
 import type {
   BatchedViewportPreloadOptions,
-  DefaultPreloadOptions,
-  PreloadLink,
   PreloadOption,
   PreloadStrategy,
 } from '../src'
+
+// Hover or focus preloads at once, and leaving doesn't cancel anything
+const eagerPreload: PreloadStrategy = (link) => ({ enter: link.preload })
+
+// Only the first `max` links to mount preload, counted per options
+const firstLinksPreload = createPreloadStrategy<{ max?: number }>((options) => {
+  let count = 0
+  return (link) => {
+    if (count++ < (options.max ?? 1)) {
+      link.preload()
+    }
+  }
+})
 
 // One callback per observed element, so tests can scroll links independently.
 let observed: Map<Element, IntersectionObserverCallback>
@@ -73,7 +87,7 @@ async function setup(
     // Called on every render of every link, as an inline prop would be
     inlinePreload?: () => PreloadOption
     linkDelay?: number
-    defaultPreloadOptions?: DefaultPreloadOptions
+    defaultPreloadDelay?: number
   } = {},
 ) {
   // A link's own `preload` wins over the router's default
@@ -111,8 +125,7 @@ async function setup(
   const router = createRouter({
     routeTree: rootRoute.addChildren([indexRoute, postRoute]),
     history: createMemoryHistory(),
-    defaultPreloadDelay: 50,
-    defaultPreloadOptions: options.defaultPreloadOptions,
+    defaultPreloadDelay: options.defaultPreloadDelay ?? 50,
     defaultPreload: options.batch
       ? batchedViewportPreload(
           options.batch === true ? undefined : options.batch,
@@ -152,7 +165,7 @@ async function setup(
     })
   }
 
-  return { preloads, scroll, view, links }
+  return { preloads, scroll, view, links, router }
 }
 
 describe('batchedViewportPreload()', () => {
@@ -226,6 +239,71 @@ describe('batchedViewportPreload()', () => {
     expect(vi.getTimerCount()).toBe(0)
     await vi.advanceTimersByTimeAsync(50)
     expect(preloads).toEqual([])
+  })
+
+  test('the batch stops when its last link unmounts, and starts again with the next', async () => {
+    const removed = vi.spyOn(document, 'removeEventListener')
+    const { view } = await setup({ batch: true })
+    expect(rootMargins).toEqual(['100px'])
+    expect(observed.size).toBe(3)
+
+    view.unmount()
+    // The observer is disconnected and the scroll listener removed
+    expect(observed.size).toBe(0)
+    expect(removed).toHaveBeenCalledWith('scroll', expect.any(Function), {
+      capture: true,
+      passive: true,
+    })
+
+    vi.useRealTimers()
+    const { preloads, scroll } = await setup({ batch: true })
+    expect(rootMargins).toEqual(['100px', '100px'])
+    scroll('a', true)
+    await vi.advanceTimersByTimeAsync(50)
+    expect(preloads.map(([id]) => id)).toEqual(['a'])
+  })
+
+  test("a link's preloadDelay wins over the batch's delay", async () => {
+    const { preloads, scroll } = await setup({
+      inlinePreload: () => batchedViewportPreload({ delay: 200 }),
+      linkDelay: 10,
+    })
+    scroll('a', true)
+    await vi.advanceTimersByTimeAsync(10)
+    expect(preloads.map(([id]) => id)).toEqual(['a'])
+  })
+
+  test("the router's defaultPreloadDelay applies when neither sets one", async () => {
+    const { preloads, scroll } = await setup({
+      batch: true,
+      defaultPreloadDelay: 80,
+    })
+    scroll('a', true)
+    await vi.advanceTimersByTimeAsync(79)
+    expect(preloads).toEqual([])
+    await vi.advanceTimersByTimeAsync(1)
+    expect(preloads.map(([id]) => id)).toEqual(['a'])
+  })
+
+  test('server rendering creates no observer and adds no listeners', () => {
+    const added = vi.spyOn(document, 'addEventListener')
+    const router = createRouter({
+      routeTree: createRootRoute(),
+      history: createMemoryHistory(),
+      isServer: true,
+    })
+    const html = renderToString(
+      <RouterContextProvider router={router}>
+        {LINKS.map((id) => (
+          <Link key={id} to="/" preload={batchedViewportPreload()}>
+            {id}
+          </Link>
+        ))}
+      </RouterContextProvider>,
+    )
+    expect(html).toContain('href="/"')
+    expect(rootMargins).toEqual([])
+    expect(added).not.toHaveBeenCalled()
   })
 
   test("preload='viewport' keeps one timer per link", async () => {
@@ -334,30 +412,6 @@ describe('strategies by import work like their strings', () => {
     expect(second.preloads.map(([id]) => id)).toEqual(['a'])
   })
 
-  test("the router's defaultPreloadOptions apply per strategy name", async () => {
-    // The string mode picks up its name's router-wide options
-    await setup({
-      preload: 'viewport',
-      defaultPreloadOptions: { viewport: { rootMargin: '250px' } },
-    })
-    expect(rootMargins).toEqual(['250px', '250px', '250px'])
-
-    cleanup()
-    vi.useRealTimers()
-    rootMargins = []
-    // Options passed to the strategy win over the router's
-    const { preloads, scroll } = await setup({
-      inlinePreload: () => batchedViewportPreload({ rootMargin: '10px' }),
-      defaultPreloadOptions: {
-        batchedViewport: { delay: 20, rootMargin: '999px' },
-      },
-    })
-    expect(rootMargins).toEqual(['10px'])
-    scroll('a', true)
-    await vi.advanceTimersByTimeAsync(20)
-    expect(preloads.map(([id]) => id)).toEqual(['a'])
-  })
-
   test('viewport strategies take a rootMargin', async () => {
     await setup({ preload: viewportPreload({ rootMargin: '300px' }) })
     expect(rootMargins).toEqual(['300px', '300px', '300px'])
@@ -376,16 +430,24 @@ describe('strategies by import work like their strings', () => {
   })
 
   test('a custom strategy decides on its own', async () => {
-    // Hover or focus preloads at once, and leaving doesn't cancel anything
-    const eager: PreloadStrategy = () => (link: PreloadLink) => ({
-      enter: link.preload,
-    })
-    const { preloads, links } = await setup({ preload: eager })
+    const { preloads, links } = await setup({ preload: eagerPreload })
 
     fireEvent.mouseEnter(links.a)
     fireEvent.mouseLeave(links.a)
     expect(preloads.map(([id]) => id)).toEqual(['a'])
     fireEvent.touchStart(links.b)
     expect(preloads.map(([id]) => id)).toEqual(['a'])
+  })
+
+  test('a custom factory shares state per options like the built-ins', async () => {
+    const { preloads } = await setup({
+      inlinePreload: () => firstLinksPreload({ max: 2 }),
+    })
+    expect(preloads.map(([id]) => id)).toEqual(['a', 'b'])
+    expect(firstLinksPreload({ max: 2 })).toBe(firstLinksPreload({ max: 2 }))
+
+    // Re-rendering calls the inline factory again: same strategy, no restart
+    fireEvent.click(screen.getByRole('button', { name: 'rerender' }))
+    expect(preloads.map(([id]) => id)).toEqual(['a', 'b'])
   })
 })

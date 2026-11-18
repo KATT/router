@@ -1,22 +1,31 @@
 import { createPreloadStrategy, delayOf } from './shared'
 
+/**
+ * Options for `batchedViewportPreload()`
+ * @experimental
+ */
 export interface BatchedViewportPreloadOptions {
   /**
    * Milliseconds the page must stay still (no intersection change, scroll or
    * resize) before the batch preloads. The last link to join sets it, and its
    * own `preloadDelay` wins.
-   * @default `defaultPreloadOptions.batchedViewport.delay`, else `defaultPreloadDelay`
+   * @default the router's `defaultPreloadDelay`
    */
   delay?: number
   /**
    * How far outside the viewport a link counts as in view.
-   * @default `defaultPreloadOptions.batchedViewport.rootMargin`, else `'100px'`
+   * @default '100px'
    */
   rootMargin?: string
 }
 
-/** One page-wide batch: an observer, a queue and a timer */
-function createBatch(rootMargin: string) {
+const listen = { capture: true, passive: true }
+
+/**
+ * One batch: an observer, a queue and a timer. `done` runs when its last link
+ * leaves, after it has stopped observing and listening.
+ */
+function createBatch(rootMargin: string, done: () => void) {
   const preloads = new Map<Element, () => void>()
   let queue = new Set<Element>()
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -50,8 +59,8 @@ function createBatch(rootMargin: string) {
     { rootMargin },
   )
   // Capture, so scrolling inside any container counts, not only the page
-  document.addEventListener('scroll', restart, { capture: true, passive: true })
-  window.addEventListener('resize', restart, { passive: true })
+  document.addEventListener('scroll', restart, listen)
+  window.addEventListener('resize', restart, listen)
 
   return {
     add: (element: Element, preload: () => void, delay: number) => {
@@ -68,6 +77,12 @@ function createBatch(rootMargin: string) {
       if (queue.delete(element) && !queue.size) {
         restart()
       }
+      if (!preloads.size) {
+        observer.disconnect()
+        document.removeEventListener('scroll', restart, listen)
+        window.removeEventListener('resize', restart, listen)
+        done()
+      }
     },
   }
 }
@@ -79,26 +94,28 @@ function createBatch(rootMargin: string) {
  * once the page has settled; then every queued link preloads in the same tick,
  * so data layers that batch per tick send one request.
  *
- * The batch belongs to the router: every link on it that uses this strategy
- * shares it, whether through `defaultPreload: batchedViewportPreload()` or
- * `<Link preload={batchedViewportPreload()} />` inline (the same options give
- * the same strategy). It starts in the browser, with the first link.
+ * Every link using it with the same options shares one batch, whether through
+ * `defaultPreload: batchedViewportPreload()` or inline
+ * `<Link preload={batchedViewportPreload()} />`. The batch starts in the
+ * browser with the first link and stops when the last one unmounts.
+ * @experimental
  */
-export const batchedViewportPreload = createPreloadStrategy(
-  'batchedViewport',
-  (options, router) => {
+export const batchedViewportPreload =
+  createPreloadStrategy<BatchedViewportPreloadOptions>((options) => {
     let batch: ReturnType<typeof createBatch> | undefined
     return (link) => {
       const { element } = link
       if (!element || typeof IntersectionObserver !== 'function') {
         return
       }
-      const shared = (batch ??= createBatch(options.rootMargin ?? '100px'))
-      shared.add(element, link.preload, delayOf(router, link, options.delay))
+      const shared = (batch ??= createBatch(
+        options.rootMargin ?? '100px',
+        () => (batch = undefined),
+      ))
+      shared.add(element, link.preload, delayOf(link, options.delay))
       return {
         cancel: () => shared.drop(element),
         cleanup: () => shared.remove(element),
       }
     }
-  },
-)
+  })

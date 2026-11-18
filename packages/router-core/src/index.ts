@@ -311,19 +311,16 @@ export {
   renderPreload,
   resolvePreloadStrategy,
   viewportPreload,
-} from './preload-strategies'
+} from './preload-strategies/index'
 export type {
   BatchedViewportPreloadOptions,
-  DefaultPreloadOptions,
   IntentPreloadOptions,
-  LinkPreloader,
   PreloadHandlers,
   PreloadLink,
   PreloadOption,
   PreloadStrategy,
-  PreloadStrategyOptions,
   ViewportPreloadOptions,
-} from './preload-strategies'
+} from './preload-strategies/index'
 
 export {
   defaultParseSearch,

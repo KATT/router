@@ -1,11 +1,16 @@
-import { createPreloadStrategy } from './shared'
+import type { PreloadStrategy } from './types'
 
 const rendered = new WeakSet<object>()
 
-/** `'render'`: preloads once per Link, as soon as it mounts. */
-export const renderPreload = createPreloadStrategy('render', () => (link) => {
+const render: PreloadStrategy = (link) => {
   if (!rendered.has(link.key)) {
     rendered.add(link.key)
     link.preload()
   }
-})
+}
+
+/**
+ * `'render'`: preloads once per Link, as soon as it mounts.
+ * @experimental
+ */
+export const renderPreload = () => render

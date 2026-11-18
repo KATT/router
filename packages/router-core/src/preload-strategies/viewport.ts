@@ -1,16 +1,19 @@
-import { delayedPreload } from './delay'
-import { createPreloadStrategy, delayOf } from './shared'
+import { createPreloadStrategy, delayOf, delayedPreload } from './shared'
 
+/**
+ * Options for `viewportPreload()`
+ * @experimental
+ */
 export interface ViewportPreloadOptions {
   /**
    * Milliseconds a link stays in view before it preloads.
    * A link's own `preloadDelay` wins.
-   * @default `defaultPreloadOptions.viewport.delay`, else `defaultPreloadDelay`
+   * @default the router's `defaultPreloadDelay`
    */
   delay?: number
   /**
    * How far outside the viewport a link counts as in view.
-   * @default `defaultPreloadOptions.viewport.rootMargin`, else `'100px'`
+   * @default '100px'
    */
   rootMargin?: string
 }
@@ -18,18 +21,15 @@ export interface ViewportPreloadOptions {
 /**
  * `'viewport'`: each link has its own IntersectionObserver. Entering the
  * viewport preloads after the delay, and leaving first cancels it.
+ * @experimental
  */
-export const viewportPreload = createPreloadStrategy(
-  'viewport',
-  (options, router) => (link) => {
+export const viewportPreload = createPreloadStrategy<ViewportPreloadOptions>(
+  (options) => (link) => {
     const { element } = link
     if (!element || typeof IntersectionObserver !== 'function') {
       return
     }
-    const { start, cancel } = delayedPreload(
-      link,
-      delayOf(router, link, options.delay),
-    )
+    const { start, cancel } = delayedPreload(link, delayOf(link, options.delay))
     let active = true
     const observer = new IntersectionObserver(
       (entries) => {

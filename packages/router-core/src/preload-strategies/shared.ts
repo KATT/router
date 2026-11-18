@@ -1,49 +1,54 @@
-import type { AnyRouter } from '../router'
-import type {
-  LinkPreloader,
-  PreloadLink,
-  PreloadStrategy,
-  PreloadStrategyOptions,
-} from './types'
+import type { PreloadLink, PreloadStrategy } from './types'
 
 /**
- * A link's preload delay: its own `preloadDelay`, else the strategy's
- * `delay`, else the router's `defaultPreloadDelay`.
+ * Makes a strategy factory, `factory(options)(link)`, the way the built-in
+ * ones are made. The same options give the same strategy, so one called
+ * inline on every render doesn't restart its Links. State the strategy's
+ * links share lives in `make`'s closure: one per options, for the whole page.
+ * Create it lazily, on the first link, so the server never does.
+ * @experimental
  */
-export const delayOf = (router: AnyRouter, link: PreloadLink, delay?: number) =>
-  link.delay ?? delay ?? router.options.defaultPreloadDelay ?? 0
-
-/**
- * Makes a named strategy factory, `factory(options)(router)(link)`.
- *
- * - The same options give the same strategy, so one called inline on every
- *   render still gives Links the same strategy: they don't restart it.
- * - It's started once per router, with the router's `defaultPreloadOptions`
- *   for its name under the options it was called with. State its links share
- *   lives there.
- * - What it returns runs for each Link on the client.
- */
-export function createPreloadStrategy<
-  TName extends keyof PreloadStrategyOptions,
->(
-  name: TName,
-  start: (
-    options: PreloadStrategyOptions[TName],
-    router: AnyRouter,
-  ) => LinkPreloader,
-) {
+export const createPreloadStrategy = <TOptions extends object>(
+  make: (options: TOptions) => PreloadStrategy,
+) => {
   const made = new Map<string, PreloadStrategy>()
-  return (options = {} as PreloadStrategyOptions[TName]): PreloadStrategy => {
+  return (options = {} as TOptions): PreloadStrategy => {
     const key = JSON.stringify(options, Object.keys(options).sort())
     let strategy = made.get(key)
     if (!strategy) {
-      strategy = (router) =>
-        start(
-          { ...router.options.defaultPreloadOptions?.[name], ...options },
-          router,
-        )
-      made.set(key, strategy)
+      made.set(key, (strategy = make(options)))
     }
     return strategy
+  }
+}
+
+/**
+ * A link's preload delay: its own `preloadDelay`, else the strategy's
+ * `delay`, else its router's `defaultPreloadDelay`.
+ */
+export const delayOf = (link: PreloadLink, delay?: number) =>
+  link.delay ?? delay ?? link.router.options.defaultPreloadDelay ?? 0
+
+/**
+ * A link's own preload timer: `start` keeps the first, `cancel` drops it.
+ * Without a delay, `start` preloads at once.
+ */
+export function delayedPreload(link: PreloadLink, delay: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  return {
+    start: () => {
+      if (!delay) {
+        link.preload()
+        return
+      }
+      timer ??= setTimeout(() => {
+        timer = undefined
+        link.preload()
+      }, delay)
+    },
+    cancel: () => {
+      clearTimeout(timer)
+      timer = undefined
+    },
   }
 }
