@@ -1,4 +1,4 @@
-import { onNavigatingClick } from './click'
+import type { ClickRef } from './click'
 import { createPreloadStrategy } from './shared'
 
 /** @experimental */
@@ -99,9 +99,8 @@ export const batchedViewportPreload =
         const linkObserver = observer
         preloads.set(element, preload)
         linkObserver.observe(element)
-        const stopClick = onNavigatingClick(key, () => dequeue(element))
+        ;(key as ClickRef).c = () => dequeue(element)
         return () => {
-          stopClick()
           linkObserver.unobserve(element)
           preloads.delete(element)
           dequeue(element)

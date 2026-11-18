@@ -1,4 +1,5 @@
-import { delayed, onNavigatingClick } from './click'
+import { delayed } from './click'
+import type { ClickRef } from './click'
 import { memoByOptions } from './memo'
 import type { PreloadStrategy } from './types'
 
@@ -55,11 +56,10 @@ export function makeViewport(options: ViewportPreloadOptions): PreloadStrategy {
       { rootMargin: options.rootMargin ?? '100px' },
     )
     observer.observe(element)
-    const stopClick = onNavigatingClick(ref, cancel)
+    ;(ref as ClickRef).c = cancel
     return () => {
       active = false
       observer.disconnect()
-      stopClick()
       cancel()
     }
   }

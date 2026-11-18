@@ -1,4 +1,5 @@
-import { delayed, onNavigatingClick } from './click'
+import { delayed } from './click'
+import type { ClickRef } from './click'
 import { memoByOptions } from './memo'
 import type { PreloadStrategy } from './types'
 
@@ -49,7 +50,7 @@ export function makeIntent(options: IntentPreloadOptions): PreloadStrategy {
     for (const type in listeners) {
       element.addEventListener(type, listeners[type]!, { passive: true })
     }
-    const stopClick = onNavigatingClick(ref, cancel)
+    ;(ref as ClickRef).c = cancel
     // Focused before the listeners, eg. `autoFocus` or a parent's layout effect
     if (element.contains(document.activeElement)) {
       start()
@@ -58,7 +59,6 @@ export function makeIntent(options: IntentPreloadOptions): PreloadStrategy {
       for (const type in listeners) {
         element.removeEventListener(type, listeners[type]!)
       }
-      stopClick()
       cancel()
     }
   }
