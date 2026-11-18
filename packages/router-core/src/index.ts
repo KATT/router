@@ -304,6 +304,8 @@ export type {
 
 export { retainSearchParams, stripSearchParams } from './searchMiddleware'
 
+export { queueViewportPreload } from './viewport-preload'
+
 export {
   defaultParseSearch,
   defaultStringifySearch,

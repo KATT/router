@@ -94,6 +94,25 @@ const router = createRouter({
 
 You can also set the `preloadDelay` prop on individual `<Link>` components to override the default behavior on a per-link basis.
 
+### Batching Viewport Preloads
+
+By default, each viewport link has its own timer, so links that scroll into view at different times preload at different times. Set `defaultPreloadViewportBatch: true` to share one timer per router instead:
+
+```tsx
+const router = createRouter({
+  // ...
+  defaultPreload: 'viewport',
+  defaultPreloadDelay: 100,
+  defaultPreloadViewportBatch: true,
+})
+```
+
+- A link that enters the viewport is queued. A link that leaves before the flush is dropped.
+- Every time a link enters or leaves the viewport, the timer restarts, so nothing preloads while the user keeps scrolling.
+- When the timer fires, every queued link preloads in the same tick.
+
+This helps data layers that batch requests per tick, such as tRPC's batch links or DataLoader, send one request per screenful instead of one per link. A link that comes back into view is queued again, and the router's usual staleness rules decide whether its loaders run.
+
 ## Built-in Preloading, Freshness, and Retention
 
 If you're using the built-in loaders, you can control how long preloaded data is considered fresh by setting either `routerOptions.defaultPreloadStaleTime` or `routeOptions.preloadStaleTime` to a number of milliseconds. **By default, preloaded data is considered fresh for 30 seconds.**

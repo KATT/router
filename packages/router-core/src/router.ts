@@ -241,6 +241,17 @@ export interface RouterOptions<
    */
   defaultPreloadDelay?: number
   /**
+   * If `true`, delayed viewport preloads share one timer per router instead of
+   * one timer per link. Every time a viewport link enters or leaves the
+   * viewport, the timer restarts. When it fires, all links still in view
+   * preload in the same tick, so data layers that batch per tick can send one
+   * request per screenful.
+   *
+   * @default false
+   * @link [Guide](https://tanstack.com/router/latest/docs/framework/react/guide/preloading#batching-viewport-preloads)
+   */
+  defaultPreloadViewportBatch?: boolean
+  /**
    * The default `preloadIntentProximity` a route should use if no preloadIntentProximity is provided.
    *
    * @default 0
