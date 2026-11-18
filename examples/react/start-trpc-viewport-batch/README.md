@@ -9,6 +9,14 @@ client), and the panel on the right logs every tRPC HTTP request.
 - `render`: every link preloads when it mounts, one request per page of posts.
 - `viewport`: each link preloads on its own timer when it scrolls into view, so
   scrolling sends many small requests.
+- `viewport-batch`: router preloading is off, and `useViewportBatchPreload`
+  (`src/utils/viewport-preloader.ts`) takes over. One shared
+  IntersectionObserver queues links as they enter the viewport and drops them
+  as they leave. Every change restarts a 100 ms timer. When it fires, every
+  queued link calls `router.preloadRoute()` in the same tick, so their loaders'
+  tRPC queries go out in one request.
+
+This runs on the current router; it needs no router changes.
 
 Loaders don't wait for data. They start tRPC queries with `loadHandles` and
 prefetch entries (`src/trpc/queries.ts`) and return the handles; components

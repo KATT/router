@@ -1,13 +1,18 @@
 import { createIsomorphicFn } from '@tanstack/react-start'
 import { getCookie } from '@tanstack/react-start/server'
 
-export const PRELOAD_MODES = ['off', 'render', 'viewport'] as const
+export const PRELOAD_MODES = [
+  'off',
+  'render',
+  'viewport',
+  'viewport-batch',
+] as const
 export type PreloadMode = (typeof PRELOAD_MODES)[number]
 
 const COOKIE = 'preload-mode'
 
 const parse = (value: string | undefined | null): PreloadMode =>
-  PRELOAD_MODES.find((mode) => mode === value) ?? 'viewport'
+  PRELOAD_MODES.find((mode) => mode === value) ?? 'viewport-batch'
 
 // Read on the server for SSR and in the browser on hydration, so both render
 // the same mode.
@@ -22,10 +27,13 @@ export function setPreloadMode(mode: PreloadMode) {
   window.location.reload()
 }
 
-/** Turns the demo's mode into router options. */
+/**
+ * `off`, `render` and `viewport` are the router's own modes. `viewport-batch`
+ * turns router preloading off and lets `useViewportBatchPreload` do it.
+ */
 export function routerPreloadOptions(mode: PreloadMode) {
   return {
-    defaultPreload: mode === 'off' ? false : mode,
+    defaultPreload: mode === 'off' || mode === 'viewport-batch' ? false : mode,
     defaultPreloadDelay: 100,
   } as const
 }

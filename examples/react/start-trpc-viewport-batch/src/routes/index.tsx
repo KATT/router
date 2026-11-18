@@ -1,5 +1,5 @@
 import { useSuspenseInfiniteQuery } from '@tanstack/react-query'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import {
   fromHandle,
   loadHandles,
@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
+import { useViewportBatchPreload } from '~/utils/viewport-preloader'
 import { getNextPageParam, postListEntries } from '~/trpc/queries'
 
 export const Route = createFileRoute('/')({
@@ -35,8 +36,9 @@ function PostListPage() {
         <code className="text-foreground">trpc.posts.byId</code>. Scroll and
         watch the request log. With <b className="text-foreground">viewport</b>,
         each link preloads on its own timer, so tRPC's batch link sends many
-        small requests. With <b className="text-foreground">render</b>, every
-        link preloads as it mounts, one request per page. Current mode:{' '}
+        small requests. With <b className="text-foreground">viewport-batch</b>,
+        a small user-land hook with one shared observer waits for scrolling to
+        settle, then preloads every link in view in one request. Current mode:{' '}
         <b className="text-foreground">{preloadMode}</b>.
       </p>
       <React.Suspense fallback={<PostListSkeleton />}>
@@ -59,7 +61,7 @@ function PostListSkeleton() {
 }
 
 function PostList() {
-  const { trpc } = Route.useRouteContext()
+  const { trpc, preloadMode } = Route.useRouteContext()
   const handles = Route.useLoaderData()
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useSuspenseInfiniteQuery(
@@ -90,7 +92,10 @@ function PostList() {
         {data.pages.flatMap((page) =>
           page.items.map((post) => (
             <li key={post.id}>
-              <PostLink post={post} />
+              <PostLink
+                post={post}
+                batched={preloadMode === 'viewport-batch'}
+              />
             </li>
           )),
         )}
@@ -107,13 +112,25 @@ function PostList() {
 
 function PostLink({
   post,
+  batched,
 }: {
   post: { id: number; title: string; excerpt: string }
+  batched: boolean
 }) {
+  const router = useRouter()
+  const postId = String(post.id)
+  // Router preloading is off in this mode; the shared batch preloads the
+  // route instead, which runs its loader and so its tRPC query.
+  const ref = useViewportBatchPreload(
+    () => router.preloadRoute({ to: '/posts/$postId', params: { postId } }),
+    batched,
+  )
+
   return (
     <Link
+      ref={ref}
       to="/posts/$postId"
-      params={{ postId: String(post.id) }}
+      params={{ postId }}
       className="block rounded-xl focus-visible:ring-2 focus-visible:outline-none"
     >
       <Card className="hover:bg-accent transition-colors">
