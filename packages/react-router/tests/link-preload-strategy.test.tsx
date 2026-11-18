@@ -395,3 +395,92 @@ describe('invalid preload values are ignored', () => {
   })
 })
 
+describe('batchedViewportPreload()', () => {
+  test("a link's own preloadDelay doesn't change the batch's delay", async () => {
+    const { preload, mount } = setup({
+      defaultPreloadDelay: 50,
+      defaultPreload: batchedViewportPreload(),
+    })
+    mount(
+      <Link to="/target" preloadDelay={5}>
+        Target
+      </Link>,
+    )
+    vi.useFakeTimers()
+    intersect(screen.getByRole('link'))
+    await vi.advanceTimersByTimeAsync(49)
+    expect(preload).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(preload).toHaveBeenCalledTimes(1)
+  })
+
+  test('a click on the only queued link leaves no timer', async () => {
+    const { preload, navigate, mount } = setup({
+      defaultPreloadDelay: 50,
+      defaultPreload: batchedViewportPreload(),
+    })
+    mount(<Link to="/target">Target</Link>)
+    vi.useFakeTimers()
+    const link = screen.getByRole('link')
+    intersect(link)
+    fireEvent.click(link)
+    expect(navigate).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+    await vi.advanceTimersByTimeAsync(50)
+    expect(preload).not.toHaveBeenCalled()
+  })
+
+  describe('the batch listens to the page only while it has links', () => {
+    const pageListeners = () => {
+      const spies = [
+        vi.spyOn(document, 'addEventListener'),
+        vi.spyOn(document, 'removeEventListener'),
+        vi.spyOn(window, 'addEventListener'),
+        vi.spyOn(window, 'removeEventListener'),
+      ]
+      const count = (i: number) =>
+        spies[i]!.mock.calls.filter(([type]) =>
+          ['scroll', 'resize'].includes(type),
+        ).length
+      // Listeners added and not removed yet
+      return () => count(0) + count(2) - count(1) - count(3)
+    }
+
+    test('unmounting every link removes them; the next link adds them again', () => {
+      const listening = pageListeners()
+      const disconnect = vi.spyOn(IntersectionObserver.prototype, 'disconnect')
+      const { mount } = setup({ defaultPreload: batchedViewportPreload() })
+      const links = (
+        <>
+          <Link to="/a">a</Link>
+          <Link to="/b">b</Link>
+        </>
+      )
+      const first = mount(links)
+      expect(listening()).toBe(2)
+      first.unmount()
+      expect(listening()).toBe(0)
+      expect(disconnect).toHaveBeenCalledTimes(1)
+
+      const second = mount(links)
+      expect(listening()).toBe(2)
+      expect(observed.size).toBe(2)
+      second.unmount()
+      expect(listening()).toBe(0)
+    })
+
+    test('stays bounded across many routers and options', () => {
+      const listening = pageListeners()
+      for (let i = 0; i < 20; i++) {
+        const { mount } = setup()
+        mount(
+          <Link to="/a" preload={batchedViewportPreload({ delay: i })}>
+            a
+          </Link>,
+        ).unmount()
+      }
+      expect(listening()).toBe(0)
+      expect(observed.size).toBe(0)
+    })
+  })
+})

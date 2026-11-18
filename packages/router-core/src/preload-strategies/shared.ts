@@ -1,13 +1,6 @@
 import { memoByOptions } from './memo'
 import type { AnyRouter } from '../router'
-import type { LinkPreloader, PreloadLink, PreloadStrategy } from './types'
-
-/**
- * A link's preload delay: its own `preloadDelay`, else the strategy's
- * `delay`, else the router's `defaultPreloadDelay`.
- */
-export const delayOf = (router: AnyRouter, link: PreloadLink, delay?: number) =>
-  link.delay ?? delay ?? router.options.defaultPreloadDelay ?? 0
+import type { LinkPreloader, PreloadStrategy } from './types'
 
 /**
  * Makes a strategy factory, `factory(options)(router)(link)`.
