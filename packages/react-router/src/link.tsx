@@ -392,7 +392,9 @@ export function useLinkProps<
       }
       return undefined
     },
-    [forwardedRef, router, href, preload, innerRef, userPreloadDelay],
+    // A new href restarts the strategy, as a new destination may need it
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [forwardedRef, router, href, preload, userPreloadDelay],
   )
 
   const props = collectElementProps(options, host)
