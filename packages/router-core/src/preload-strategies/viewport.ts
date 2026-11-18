@@ -47,7 +47,7 @@ export function viewport(
   options: ViewportPreloadOptions = {},
 ): ReturnType<PreloadStrategy> {
   const element = ref.current
-  if (!element || typeof IntersectionObserver !== 'function') {
+  if (typeof IntersectionObserver !== 'function') {
     return
   }
   // The link's own delay, else the strategy's, else the router's. Each

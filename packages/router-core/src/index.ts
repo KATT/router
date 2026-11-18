@@ -321,6 +321,7 @@ export type {
   PreloadLink,
   PreloadMode,
   PreloadOption,
+  PreloadRef,
   PreloadStrategy,
   ViewportPreloadOptions,
 } from './preload-strategies/index'

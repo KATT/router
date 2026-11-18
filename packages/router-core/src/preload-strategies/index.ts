@@ -14,6 +14,7 @@ export type {
   LinkPreloader,
   PreloadLink,
   PreloadMode,
+  PreloadRef,
   PreloadStrategy,
 } from './types'
 

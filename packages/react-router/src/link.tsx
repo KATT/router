@@ -21,6 +21,7 @@ import type {
   Constrain,
   LinkOptions,
   ParsedLocation,
+  PreloadRef,
   RegisteredRouter,
   RoutePaths,
 } from '@tanstack/router-core'
@@ -362,7 +363,8 @@ export function useLinkProps<
         if (typeof strategy === 'function') {
           innerRef.s = strategy(
             router,
-            innerRef,
+            // Attached: `current` is the element
+            innerRef as PreloadRef,
             () => preloadLink(router, innerRef.d),
             userPreloadDelay,
           )

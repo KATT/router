@@ -67,7 +67,7 @@ export const batchedViewportPreload =
       }
 
       return ({ element, key, preload }) => {
-        if (!element || typeof IntersectionObserver !== 'function') {
+        if (typeof IntersectionObserver !== 'function') {
           return
         }
         if (!observer) {

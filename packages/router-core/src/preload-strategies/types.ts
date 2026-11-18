@@ -11,8 +11,8 @@ export type PreloadMode = 'intent' | 'viewport' | 'render'
  * @experimental
  */
 export interface PreloadLink {
-  /** The link's element, if its ref is attached */
-  element: Element | null
+  /** The link's element */
+  element: Element
   /** The same object for the Link's whole life, across option changes */
   key: object
   /** The link's own `preloadDelay`, if it sets one */
@@ -31,17 +31,20 @@ export type LinkPreloader = (link: PreloadLink) => (() => void) | void
 
 /**
  * A Link's own ref, as its strategy gets it: the same object for the Link's
- * whole life.
+ * whole life. A Link starts its strategy once its element is attached, with
+ * that element.
+ * @experimental
  */
-export type PreloadRef = { readonly current: Element | null }
+export type PreloadRef = { readonly current: Element }
 
 /**
  * Decides when Links preload. Make one with `createPreloadStrategy`, or use
  * a built-in one: `intentPreload()`, `viewportPreload()` or `renderPreload()`.
  *
- * A Link calls it in an effect, on the client, with its router, its own ref,
- * a function that preloads its destination and its own `preloadDelay`, and
- * calls what it returns when the Link unmounts or its options change.
+ * A Link calls it on the client once its element is attached, with its
+ * router, its own ref, a function that preloads its destination and its own
+ * `preloadDelay`, and calls what it returns when the element detaches (the
+ * Link unmounts or renders another element) or its options change.
  * @experimental
  */
 export type PreloadStrategy = (

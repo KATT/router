@@ -43,9 +43,6 @@ export function intent(
   options: IntentPreloadOptions = {},
 ): ReturnType<PreloadStrategy> {
   const element = ref.current
-  if (!element) {
-    return
-  }
   // The link's own delay, else the strategy's, else the router's. Each
   // chunk has its own copy: a module the two shared would be a chunk of its
   // own that each also loads.
