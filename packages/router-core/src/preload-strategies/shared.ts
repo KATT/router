@@ -36,6 +36,7 @@ const handlerFor = {
  *   back listen to the link's element.
  * @experimental
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function createPreloadStrategy<TOptions extends object = object>(
   start: (options: TOptions, router: AnyRouter) => LinkPreloader,
 ) {

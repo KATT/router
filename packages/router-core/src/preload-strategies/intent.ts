@@ -16,18 +16,19 @@ export interface IntentPreloadOptions {
  * cancels it. Touch preloads at once.
  * @experimental
  */
-export const intentPreload = createPreloadStrategy<IntentPreloadOptions>(
-  (options, router) => (link) => {
-    const { start, cancel } = delayedPreload(
-      link,
-      delayOf(router, link, options.delay),
-    )
-    return {
-      enter: start,
-      leave: cancel,
-      touch: link.preload,
-      cancel,
-      cleanup: cancel,
-    }
-  },
-)
+export const intentPreload =
+  /* @__PURE__ */ createPreloadStrategy<IntentPreloadOptions>(
+    (options, router) => (link) => {
+      const { start, cancel } = delayedPreload(
+        link,
+        delayOf(router, link, options.delay),
+      )
+      return {
+        enter: start,
+        leave: cancel,
+        touch: link.preload,
+        cancel,
+        cleanup: cancel,
+      }
+    },
+  )
