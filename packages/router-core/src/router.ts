@@ -227,7 +227,7 @@ export interface RouterOptions<
    *
    * If `'viewport'`, routes will be preloaded by default when they are within the viewport.
    *
-   * A preload strategy, eg. `batchedViewportPreload()`, decides on its own (experimental, React only for now).
+   * A preload strategy, eg. `batchedViewportPreload()`, decides on its own (experimental, React only for now: Solid and Vue Links ignore it, with a development warning).
    *
    * @default false
    * @link [API Docs](https://tanstack.com/router/latest/docs/framework/react/api/router/RouterOptionsType#defaultpreload-property)

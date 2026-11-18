@@ -109,13 +109,14 @@ const router = createRouter({
 })
 ```
 
-- A link that enters the viewport is queued. A link that leaves, or is clicked, before the flush is dropped.
+- A link that enters the viewport is queued. A link that leaves before the flush, or that the Link navigates on with a click, is dropped. A click that doesn't navigate in the same tab (with a modifier key, another button, `target="_blank"`, or a `preventDefault()` in your `onClick`) doesn't drop it.
 - Every intersection change, scroll (of the page or any container) and resize restarts the timer, so nothing preloads until the page has settled.
+- The timer waits the strategy's own `delay`, else the router's `defaultPreloadDelay`. A link's own `preloadDelay` doesn't change it, since the timer is shared.
 - When the timer fires, every queued link preloads in the same tick.
 
 This helps data layers that batch requests per tick, such as tRPC's batch links or DataLoader, send one request per screenful instead of one per link. A link that comes back into view is queued again, and the router's usual staleness rules decide whether its loaders run.
 
-The batch belongs to the router. Every link on it that uses `batchedViewportPreload()` with the same options shares it, whether it's the router's `defaultPreload` or written inline as `<Link preload={batchedViewportPreload()} />`.
+The batch belongs to the router. Every link on it that uses `batchedViewportPreload()` with the same options shares it, whether it's the router's `defaultPreload` or written inline as `<Link preload={batchedViewportPreload()} />`. It listens to the page only while it has links: once the last one unmounts, it stops, and the next link starts it again.
 
 ### Preload Strategies
 
@@ -131,7 +132,9 @@ In React, `preload` and `defaultPreload` also take a strategy, which decides whe
 
 Links don't have their own code for the strings: a string loads its strategy on demand. See [Strings Load Their Strategy On Demand](#strings-load-their-strategy-on-demand).
 
-For a delay, a link's own `preloadDelay` wins, then the options passed to the strategy, then `defaultPreloadDelay`. `rootMargin` defaults to `'100px'`. The same options always give the same strategy, so creating one inline in render is fine (for the built-ins, the same options written in the same key order). To use the same options across the app, create the strategy once and use it everywhere:
+For a delay, a link's own `preloadDelay` wins, then the options passed to the strategy, then `defaultPreloadDelay` (except for `batchedViewportPreload()`, whose shared timer ignores links' own `preloadDelay`). `rootMargin` defaults to `'100px'`.
+
+The same options always give the same strategy, so creating one inline in render is fine. Options are the same when their string, number, boolean and `null` values are, in any key order; `undefined` values don't count, so `intentPreload()`, `intentPreload({})` and `intentPreload({ delay: undefined })` are the same strategy. Options that hold an object or a function give a new strategy on every call, which restarts the Links that use it on every render: create such a strategy once, outside render. To use the same options across the app, create the strategy once and use it everywhere:
 
 ```tsx
 export const batched = batchedViewportPreload({ delay: 150 })
@@ -171,12 +174,12 @@ The router stage is where a strategy reads its options and keeps state its links
 
 > **Experimental:** This is experimental and subject to change.
 
-In React, the strings `'intent'`, `'viewport'` and `'render'` are their built-in strategies. The built-in strategies are a separate chunk: the first Link with a string mode that mounts loads it, once per page, and starts its strategy when it's there. A Link that unmounts before then starts nothing. So:
+In React, the strings `'intent'`, `'viewport'` and `'render'` are their built-in strategies. The built-in strategies are a separate chunk: the first Link with a string mode that mounts loads it, once per page, and starts its strategy when it's there. A Link that unmounts before then starts nothing. If the chunk fails to load, the Links waiting for it warn once and don't preload, and the next Link with a string mode that mounts loads it again. Other values, such as `true` or an unknown string, are ignored, with a warning in development. So:
 
 - An app with no preloading, or with imported strategies only, doesn't download the built-ins.
 - An app that uses the strings downloads them in a second request after the page loads, and its links start preloading once that's done.
 
-Since strategies listen to the element themselves, a `preventDefault()` in your `onMouseEnter`, `onFocus` or `onTouchStart` handler no longer stops an `'intent'` preload, and a custom link component made with `createLink` has to pass its `ref` on to the element for `'intent'` to work.
+Since strategies listen to the element themselves, a `preventDefault()` in your `onMouseEnter`, `onFocus` or `onTouchStart` handler no longer stops an `'intent'` preload (your handler is still called), and a custom link component made with `createLink` has to pass its `ref` on to the element for `'intent'` to work. If such a component switches to another element, the strategy starts again with the new one. A click still cancels a pending preload only when the Link navigates on it, as before.
 
 #### Rewrite the strings at build time
 

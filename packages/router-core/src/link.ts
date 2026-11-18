@@ -675,13 +675,14 @@ export interface LinkOptionsProps {
    * - `'intent'` - Preload the linked route when the user focuses, hovers over, or touches the link
    * - `'viewport'` - Preload the linked route when it enters the viewport
    * - `'render'` - Preload the linked route as soon as it renders
-   * - A preload strategy, eg. `batchedViewportPreload()` (experimental, React only for now)
+   * - A preload strategy, eg. `batchedViewportPreload()` (experimental, React only for now: Solid and Vue Links ignore it, with a development warning)
    */
   preload?: PreloadOption
   /**
    * Delays focus, hover, and viewport preloading by this many milliseconds.
    * Touch intent preloads immediately. If focus or hover ends, or the link
    * leaves the viewport before this delay, the preload will be cancelled.
+   * `batchedViewportPreload()` ignores it: its links share one timer.
    */
   preloadDelay?: number
   /**
