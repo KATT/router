@@ -38,4 +38,50 @@ describe('start config schema', () => {
       path.resolve(root, 'app', 'routes.gen.ts'),
     )
   })
+
+  test.each([
+    ['Vite', parseViteStartConfig],
+    ['Rsbuild', parseRsbuildStartConfig],
+  ])(
+    '%s: keeps the options of router.experimental.compilePreloadStrings',
+    (_, parse) => {
+      const compilePreloadStrings = {
+        viewport: { rootMargin: '200px', delay: 100 },
+        intent: { delay: 0 },
+      }
+      const config = parse(
+        { router: { experimental: { compilePreloadStrings } } },
+        corePluginOpts,
+        root,
+      )
+
+      expect(config.router.experimental?.compilePreloadStrings).toEqual(
+        compilePreloadStrings,
+      )
+    },
+  )
+
+  test.each([
+    ['Vite', parseViteStartConfig],
+    ['Rsbuild', parseRsbuildStartConfig],
+  ])(
+    '%s: rejects options of router.experimental.compilePreloadStrings the plugin cannot write into the code',
+    (_, parse) => {
+      expect(() =>
+        parse(
+          {
+            router: {
+              experimental: {
+                compilePreloadStrings: {
+                  viewport: { rootMargin: 200 as unknown as string },
+                },
+              },
+            },
+          },
+          corePluginOpts,
+          root,
+        ),
+      ).toThrow(/expected string, received number/)
+    },
+  )
 })

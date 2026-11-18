@@ -73,6 +73,61 @@ describe.each(['vite', 'rsbuild'] as const)('%s build', (bundler) => {
     },
     timeout,
   )
+
+  // Start composes the router's plugins itself: the option did nothing.
+  test(
+    'router.experimental.compilePreloadStrings rewrites the preload strings of routes',
+    async () => {
+      const files = appFiles({
+        'src/routes/index.tsx': `import { Link, createFileRoute } from '@tanstack/react-router'
+export const Route = createFileRoute('/')({
+  component: () => <Link to="/" preload="intent">MARK_LINK</Link>,
+})
+`,
+      })
+      const literal = /preload:\s*["'`]intent["'`]/
+      const off = await buildStartApp(await createStartApp(files), bundler)
+      expect(off.client).toMatch(literal)
+      const on = await buildStartApp(await createStartApp(files), bundler, {
+        router: { experimental: { compilePreloadStrings: true } },
+      })
+      expect(on.client).toContain('MARK_LINK')
+      expect({
+        client: literal.test(on.client),
+        server: literal.test(on.server),
+      }).toEqual({ client: false, server: false })
+    },
+    timeout,
+  )
+
+  test(
+    'router.experimental.compilePreloadStrings options reach the rewritten strategies',
+    async () => {
+      const files = appFiles({
+        'src/routes/index.tsx': `import { Link, createFileRoute } from '@tanstack/react-router'
+export const Route = createFileRoute('/')({
+  component: () => <Link to="/" preload="viewport">MARK_LINK</Link>,
+})
+`,
+      })
+      const build = await buildStartApp(await createStartApp(files), bundler, {
+        router: {
+          experimental: {
+            compilePreloadStrings: {
+              viewport: { rootMargin: 'MARK_MARGIN', delay: 100 },
+            },
+          },
+        },
+      })
+      expect(build.client).toContain('MARK_LINK')
+      expect(build.client).not.toMatch(/preload:\s*["'`]viewport["'`]/)
+      // The options are written into the client build as they are
+      expect(build.client).toMatch(
+        /\{\s*delay:\s*100,\s*rootMargin:\s*["'`]MARK_MARGIN["'`]\s*\}/,
+      )
+    },
+    timeout,
+  )
 })
 
 describe('vite build', () => {
