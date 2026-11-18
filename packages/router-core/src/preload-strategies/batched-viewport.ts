@@ -101,21 +101,23 @@ function createBatch(rootMargin: string, done: () => void) {
  * @experimental
  */
 export const batchedViewportPreload =
-  createPreloadStrategy<BatchedViewportPreloadOptions>((options) => {
-    let batch: ReturnType<typeof createBatch> | undefined
-    return (link) => {
-      const { element } = link
-      if (!element || typeof IntersectionObserver !== 'function') {
-        return
+  /* @__PURE__ */ createPreloadStrategy<BatchedViewportPreloadOptions>(
+    (options) => {
+      let batch: ReturnType<typeof createBatch> | undefined
+      return (link) => {
+        const { element } = link
+        if (!element || typeof IntersectionObserver !== 'function') {
+          return
+        }
+        const shared = (batch ??= createBatch(
+          options.rootMargin ?? '100px',
+          () => (batch = undefined),
+        ))
+        shared.add(element, link.preload, delayOf(link, options.delay))
+        return {
+          cancel: () => shared.drop(element),
+          cleanup: () => shared.remove(element),
+        }
       }
-      const shared = (batch ??= createBatch(
-        options.rootMargin ?? '100px',
-        () => (batch = undefined),
-      ))
-      shared.add(element, link.preload, delayOf(link, options.delay))
-      return {
-        cancel: () => shared.drop(element),
-        cleanup: () => shared.remove(element),
-      }
-    }
-  })
+    },
+  )

@@ -8,6 +8,7 @@ import type { PreloadLink, PreloadStrategy } from './types'
  * Create it lazily, on the first link, so the server never does.
  * @experimental
  */
+/* @__NO_SIDE_EFFECTS__ */
 export const createPreloadStrategy = <TOptions extends object>(
   make: (options: TOptions) => PreloadStrategy,
 ) => {

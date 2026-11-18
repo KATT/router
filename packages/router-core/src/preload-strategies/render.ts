@@ -1,6 +1,6 @@
 import type { PreloadStrategy } from './types'
 
-const rendered = new WeakSet<object>()
+const rendered = /* @__PURE__ */ new WeakSet<object>()
 
 const render: PreloadStrategy = (link) => {
   if (!rendered.has(link.key)) {
