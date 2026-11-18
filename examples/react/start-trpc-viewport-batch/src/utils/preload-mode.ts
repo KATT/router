@@ -1,5 +1,4 @@
-import { createIsomorphicFn } from '@tanstack/react-start'
-import { getCookie } from '@tanstack/react-start/server'
+import { z } from 'zod'
 
 export const PRELOAD_MODES = [
   'off',
@@ -9,31 +8,24 @@ export const PRELOAD_MODES = [
 ] as const
 export type PreloadMode = (typeof PRELOAD_MODES)[number]
 
-const COOKIE = 'preload-mode'
-
-const parse = (value: string | undefined | null): PreloadMode =>
-  PRELOAD_MODES.find((mode) => mode === value) ?? 'viewport-batch'
-
-// Read on the server for SSR and in the browser on hydration, so both render
-// the same mode.
-export const getPreloadMode = createIsomorphicFn()
-  .server(() => parse(getCookie(COOKIE)))
-  .client(() =>
-    parse(document.cookie.match(/(?:^|; )preload-mode=([^;]*)/)?.[1]),
-  )
-
-export function setPreloadMode(mode: PreloadMode) {
-  document.cookie = `${COOKIE}=${mode}; path=/; max-age=31536000; samesite=lax`
-  window.location.reload()
-}
+export const DEFAULT_PRELOAD_MODE: PreloadMode = 'viewport-batch'
 
 /**
- * `off`, `render` and `viewport` are the router's own modes. `viewport-batch`
- * turns router preloading off and lets `useViewportBatchPreload` do it.
+ * The mode lives in `?preload=`, so a link picks it and the server renders the
+ * same mode as the browser. Missing or unknown values fall back to the default.
  */
-export function routerPreloadOptions(mode: PreloadMode) {
-  return {
-    defaultPreload: mode === 'off' || mode === 'viewport-batch' ? false : mode,
-    defaultPreloadDelay: 100,
-  } as const
+export const preloadSearchSchema = z.object({
+  preload: z
+    .enum(PRELOAD_MODES)
+    .default(DEFAULT_PRELOAD_MODE)
+    .catch(DEFAULT_PRELOAD_MODE),
+})
+
+/**
+ * What a post link passes as `preload`. `off`, `render` and `viewport` are the
+ * router's own modes. `viewport-batch` turns router preloading off and lets
+ * `useViewportBatchPreload` do it.
+ */
+export function linkPreload(mode: PreloadMode) {
+  return mode === 'off' || mode === 'viewport-batch' ? false : mode
 }

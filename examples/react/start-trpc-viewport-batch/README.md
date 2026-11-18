@@ -2,8 +2,18 @@
 
 A list of posts with infinite scroll. Every card is a `<Link>` to a post whose
 loader calls `posts.byId` through tRPC's `httpBatchStreamLink`. The toggle in
-the header sets `defaultPreload` (saved in a cookie, read on the server and the
-client), and the panel on the right logs every tRPC HTTP request.
+the header picks how the post links preload, and the panel on the right logs
+every tRPC HTTP request.
+
+The mode is in the URL, e.g. `/?preload=viewport`, so a link picks it; it
+defaults to `viewport-batch`. The root route validates `?preload=` with zod
+(`validateSearch`) and keeps it on every navigation with
+`retainSearchParams(['preload'])`, so the post page and Back keep the mode.
+Each post link passes `preload` from the search param instead of relying on
+`defaultPreload`, so the server and the browser render the same mode and a new
+mode applies without a reload. Switching modes clears the React Query cache,
+the router's preload cache and the request log, then navigates to the new
+search, so each mode starts from the same empty caches.
 
 - `off`: nothing preloads.
 - `render`: every link preloads when it mounts, one request per page of posts.
@@ -21,8 +31,9 @@ This runs on the current router; it needs no router changes.
 
 Loaders don't wait for data. They start tRPC queries with `loadHandles` and
 prefetch entries (`src/trpc/queries.ts`) and return the handles; components
-suspend on them with `fromHandle`. The mode-to-router-options mapping is in
-`src/utils/preload-mode.ts`.
+suspend on them with `fromHandle`. The modes, the search schema and the
+mode-to-`preload` mapping are in `src/utils/preload-mode.ts`; the switch is in
+`src/components/preload-mode-toggle.tsx`.
 
 ## Run
 

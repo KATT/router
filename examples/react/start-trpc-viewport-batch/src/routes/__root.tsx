@@ -5,12 +5,13 @@ import {
   Outlet,
   Scripts,
   createRootRouteWithContext,
+  retainSearchParams,
 } from '@tanstack/react-router'
 import * as React from 'react'
 import type { QueryClient } from '@tanstack/react-query'
 import type { TRPCOptionsProxy } from '@trpc/tanstack-react-query'
 import type { AppRouter } from '~/trpc/router'
-import type { PreloadMode } from '~/utils/preload-mode'
+import { preloadSearchSchema } from '~/utils/preload-mode'
 import { PreloadModeToggle } from '~/components/preload-mode-toggle'
 import { RequestLog } from '~/components/request-log'
 import appCss from '~/styles/app.css?url'
@@ -18,8 +19,10 @@ import appCss from '~/styles/app.css?url'
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
   trpc: TRPCOptionsProxy<AppRouter>
-  preloadMode: PreloadMode
 }>()({
+  // `?preload=` is valid on every route, and every navigation keeps it
+  validateSearch: preloadSearchSchema,
+  search: { middlewares: [retainSearchParams(['preload'])] },
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
@@ -32,7 +35,7 @@ export const Route = createRootRouteWithContext<{
 })
 
 function RootComponent() {
-  const { preloadMode } = Route.useRouteContext()
+  const { preload } = Route.useSearch()
   return (
     <html lang="en">
       <head>
@@ -45,8 +48,8 @@ function RootComponent() {
               Viewport preload batching
             </Link>
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">defaultPreload</span>
-              <PreloadModeToggle value={preloadMode} />
+              <span className="text-muted-foreground">preload</span>
+              <PreloadModeToggle value={preload} />
             </div>
           </div>
         </header>

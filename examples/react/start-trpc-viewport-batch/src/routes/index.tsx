@@ -12,6 +12,8 @@ import {
   CardTitle,
 } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
+import { linkPreload } from '~/utils/preload-mode'
+import type { PreloadMode } from '~/utils/preload-mode'
 import { useViewportBatchPreload } from '~/utils/viewport-preloader'
 import { getNextPageParam, postListEntries } from '~/trpc/queries'
 
@@ -28,7 +30,7 @@ export const Route = createFileRoute('/')({
 })
 
 function PostListPage() {
-  const { preloadMode } = Route.useRouteContext()
+  const { preload } = Route.useSearch()
   return (
     <div className="space-y-4">
       <p className="text-muted-foreground text-sm">
@@ -39,7 +41,7 @@ function PostListPage() {
         small requests. With <b className="text-foreground">viewport-batch</b>,
         a small user-land hook with one shared observer waits for scrolling to
         settle, then preloads every link in view in one request. Current mode:{' '}
-        <b className="text-foreground">{preloadMode}</b>.
+        <b className="text-foreground">{preload}</b>.
       </p>
       <React.Suspense fallback={<PostListSkeleton />}>
         <PostList />
@@ -61,7 +63,8 @@ function PostListSkeleton() {
 }
 
 function PostList() {
-  const { trpc, preloadMode } = Route.useRouteContext()
+  const { trpc } = Route.useRouteContext()
+  const { preload } = Route.useSearch()
   const handles = Route.useLoaderData()
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useSuspenseInfiniteQuery(
@@ -92,10 +95,7 @@ function PostList() {
         {data.pages.flatMap((page) =>
           page.items.map((post) => (
             <li key={post.id}>
-              <PostLink
-                post={post}
-                batched={preloadMode === 'viewport-batch'}
-              />
+              <PostLink post={post} mode={preload} />
             </li>
           )),
         )}
@@ -112,18 +112,18 @@ function PostList() {
 
 function PostLink({
   post,
-  batched,
+  mode,
 }: {
   post: { id: number; title: string; excerpt: string }
-  batched: boolean
+  mode: PreloadMode
 }) {
   const router = useRouter()
   const postId = String(post.id)
-  // Router preloading is off in this mode; the shared batch preloads the
-  // route instead, which runs its loader and so its tRPC query.
+  // In `viewport-batch`, router preloading is off; the shared batch preloads
+  // the route instead, which runs its loader and so its tRPC query.
   const ref = useViewportBatchPreload(
     () => router.preloadRoute({ to: '/posts/$postId', params: { postId } }),
-    batched,
+    mode === 'viewport-batch',
   )
 
   return (
@@ -131,6 +131,9 @@ function PostLink({
       ref={ref}
       to="/posts/$postId"
       params={{ postId }}
+      // From `?preload=`, not `defaultPreload`: a new mode re-renders the
+      // links with it, on the server and in the browser alike
+      preload={linkPreload(mode)}
       className="block rounded-xl focus-visible:ring-2 focus-visible:outline-none"
     >
       <Card className="hover:bg-accent transition-colors">
