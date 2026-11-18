@@ -36,10 +36,11 @@ export function optionsKey(options?: object | null): string | undefined {
 export function memoByOptions<TOptions extends object, TResult>(
   make: (options: TOptions) => TResult,
 ): (options?: TOptions) => TResult {
-  const made = new Map<string, TResult>()
+  // Never holds `undefined`: options without a key aren't memoized
+  const made = new Map<string | undefined, TResult>()
   return (options) => {
     const key = optionsKey(options)
-    let result = key === undefined ? undefined : made.get(key)
+    let result = made.get(key)
     if (!result) {
       result = make({ ...options } as TOptions)
       if (key !== undefined) {
