@@ -1,23 +1,4 @@
 import type { AnyRouter } from '../router'
-import type { PreloadStrategy } from './types'
-
-/**
- * Makes a built-in strategy factory. It is lighter than
- * `createPreloadStrategy`: built-ins keep no state per router, so the
- * strategy is the function Links call. Calls with the same options (or none)
- * give the same strategy, so one called inline on every render doesn't
- * restart its Links.
- */
-/* @__NO_SIDE_EFFECTS__ */
-export function builtin<TOptions extends object>(
-  make: (options: TOptions) => PreloadStrategy,
-): (options?: TOptions) => PreloadStrategy {
-  // Keyed by the options' JSON, `'undefined'` without options. The same call
-  // in the same place has its keys in the same order.
-  const made: Record<string, PreloadStrategy> = {}
-  return (options) =>
-    (made[JSON.stringify(options)] ??= make(options ?? ({} as TOptions)))
-}
 
 /**
  * A link's own preload timer, for its `delay`, else the router's

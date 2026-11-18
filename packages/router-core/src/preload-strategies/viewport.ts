@@ -1,4 +1,6 @@
-import { builtin, delayed } from './builtin'
+import { delayed } from './builtin'
+import { memoByOptions } from './memo'
+import type { PreloadStrategy } from './types'
 
 /** @experimental */
 export interface ViewportPreloadOptions {
@@ -24,36 +26,37 @@ export interface ViewportPreloadOptions {
  * render is fine.
  * @experimental
  */
-export const viewportPreload = /* @__PURE__ */ builtin<ViewportPreloadOptions>(
-  (options) => (router, ref, preload, delay) => {
-    const element = ref.current
-    if (!element || typeof IntersectionObserver !== 'function') {
-      return
-    }
-    const [start, cancel] = delayed(router, preload, delay ?? options.delay)
-    let active = true
-    const observer = new IntersectionObserver(
-      (entries) => {
-        // The latest entry wins; a queued one can arrive after disconnect()
-        if (!active) {
-          return
-        }
-        if (entries.pop()?.isIntersecting) {
-          start()
-        } else {
-          cancel()
-        }
-      },
-      { rootMargin: options.rootMargin ?? '100px' },
-    )
-    observer.observe(element)
-    // A click cancels a pending preload before it navigates
-    element.addEventListener('click', cancel, { passive: true })
-    return () => {
-      active = false
-      observer.disconnect()
-      element.removeEventListener('click', cancel)
-      cancel()
-    }
-  },
-)
+export const viewportPreload = /* @__PURE__ */ memoByOptions<
+  ViewportPreloadOptions,
+  PreloadStrategy
+>((options) => (router, ref, preload, delay) => {
+  const element = ref.current
+  if (!element || typeof IntersectionObserver !== 'function') {
+    return
+  }
+  const [start, cancel] = delayed(router, preload, delay ?? options.delay)
+  let active = true
+  const observer = new IntersectionObserver(
+    (entries) => {
+      // The latest entry wins; a queued one can arrive after disconnect()
+      if (!active) {
+        return
+      }
+      if (entries.pop()?.isIntersecting) {
+        start()
+      } else {
+        cancel()
+      }
+    },
+    { rootMargin: options.rootMargin ?? '100px' },
+  )
+  observer.observe(element)
+  // A click cancels a pending preload before it navigates
+  element.addEventListener('click', cancel, { passive: true })
+  return () => {
+    active = false
+    observer.disconnect()
+    element.removeEventListener('click', cancel)
+    cancel()
+  }
+})

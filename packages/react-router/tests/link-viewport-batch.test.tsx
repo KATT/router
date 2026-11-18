@@ -319,13 +319,11 @@ describe('strategies by import work like their strings', () => {
     expect(batchedViewportPreload({ rootMargin: '1px', delay: 2 })).toBe(
       batchedViewportPreload({ delay: 2, rootMargin: '1px' }),
     )
-    // Built-ins key by the options as written, which is enough for a call
-    // inline in render
     expect(intentPreload()).toBe(intentPreload())
     expect(renderPreload()).toBe(renderPreload())
     expect(intentPreload({ delay: 1 })).toBe(intentPreload({ delay: 1 }))
     expect(viewportPreload({ rootMargin: '1px', delay: 2 })).toBe(
-      viewportPreload({ rootMargin: '1px', delay: 2 }),
+      viewportPreload({ delay: 2, rootMargin: '1px' }),
     )
     expect(intentPreload({ delay: 1 })).not.toBe(intentPreload({ delay: 2 }))
   })

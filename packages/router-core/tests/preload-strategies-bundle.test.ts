@@ -20,9 +20,8 @@ const bundle = async (contents: string) => {
   return result.outputFiles[0]!.text
 }
 
-// What `createPreloadStrategy` adds: keys sorted for its memo and a
-// strategy started per router
-const factoryCode = ['Object.keys(', '.sort()', 'WeakMap']
+// What `createPreloadStrategy` adds: a strategy started per router
+const factoryCode = ['function createPreloadStrategy(', 'forLinks']
 
 describe('built-in strategies', () => {
   test.each(['intentPreload', 'viewportPreload', 'renderPreload'])(
