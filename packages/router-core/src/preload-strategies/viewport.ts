@@ -54,16 +54,17 @@ export function viewport(
   // chunk has its own copy: a module the two shared would be a chunk of its
   // own that each also loads.
   const wait = delay ?? options.delay ?? router.options.defaultPreloadDelay
-  let timer: ReturnType<typeof setTimeout> | undefined
+  // Never 0 while pending: browsers number timers from 1
+  let timer: ReturnType<typeof setTimeout> | 0 = 0
   const cancel = () => {
     clearTimeout(timer)
-    timer = undefined
+    timer = 0
   }
   // Without a delay, preloads at once
   const start = () =>
     wait
-      ? (timer ??= setTimeout(() => {
-          timer = undefined
+      ? (timer ||= setTimeout(() => {
+          timer = 0
           preload()
         }, wait))
       : preload()
