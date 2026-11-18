@@ -61,12 +61,6 @@ The `RouterOptions` type accepts an object with the following properties and met
 - Defaults to `50`
 - The delay in milliseconds before intent focus/hover and viewport preloading. Touch intent preloads immediately.
 
-### `defaultPreloadOptions` property
-
-- Type: `{ intent?, viewport?, render?, batchedViewport? }`
-- Optional
-- Router-wide options for each preload strategy, by name, eg. `{ viewport: { rootMargin: '200px' }, batchedViewport: { delay: 150 } }`. They apply to the string modes and to strategies created without those options; options passed to a strategy win. See [Preload Strategies](../../guide/preloading.md#preload-strategies).
-
 ### `defaultComponent` property
 
 - Type: `RouteComponent`

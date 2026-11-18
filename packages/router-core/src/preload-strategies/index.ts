@@ -1,64 +1,31 @@
-import { intentPreload } from './intent'
-import { renderPreload } from './render'
-import { viewportPreload } from './viewport'
-import type { AnyRouter } from '../router'
-import type { LinkPreloader, PreloadStrategy } from './types'
+import type { PreloadStrategy } from './types'
 
-export { intentPreload, renderPreload, viewportPreload }
 export { batchedViewportPreload } from './batched-viewport'
+export { intentPreload } from './intent'
+export { renderPreload } from './render'
+export { viewportPreload } from './viewport'
 export { createPreloadStrategy } from './shared'
 export type { BatchedViewportPreloadOptions } from './batched-viewport'
 export type { IntentPreloadOptions } from './intent'
 export type { ViewportPreloadOptions } from './viewport'
 export type {
-  DefaultPreloadOptions,
   LinkPreloader,
   PreloadHandlers,
   PreloadLink,
   PreloadStrategy,
-  PreloadStrategyOptions,
 } from './types'
 
-/** A `preload` option as Links and the router take it */
+/**
+ * A `preload` option as Links and the router take it. Each string works like
+ * its built-in strategy with default options: `'intent'` like
+ * `intentPreload()`, `'viewport'` like `viewportPreload()` and `'render'` like
+ * `renderPreload()`. Links run the strings with their own code, so only apps
+ * that import a strategy ship one.
+ * @experimental
+ */
 export type PreloadOption =
   | false
   | 'intent'
   | 'viewport'
   | 'render'
   | PreloadStrategy
-
-const started = new WeakMap<
-  PreloadStrategy,
-  WeakMap<AnyRouter, LinkPreloader>
->()
-
-/**
- * Starts the strategy a `preload` option names for a router, once per router,
- * and gives what runs for each Link; `undefined` for no preloading. The
- * strings are the built-in strategies with their default options.
- */
-export function resolvePreloadStrategy(
-  preload: PreloadOption | undefined,
-  router: AnyRouter,
-): LinkPreloader | undefined {
-  const strategy =
-    preload === 'intent'
-      ? intentPreload()
-      : preload === 'viewport'
-        ? viewportPreload()
-        : preload === 'render'
-          ? renderPreload()
-          : preload || undefined
-  if (!strategy) {
-    return undefined
-  }
-  let byRouter = started.get(strategy)
-  if (!byRouter) {
-    started.set(strategy, (byRouter = new WeakMap()))
-  }
-  let forLinks = byRouter.get(router)
-  if (!forLinks) {
-    byRouter.set(router, (forLinks = strategy(router)))
-  }
-  return forLinks
-}

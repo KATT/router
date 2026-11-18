@@ -57,7 +57,7 @@ import {
 } from './rewrite'
 import { createRouterStores } from './stores'
 import type { SieveCache } from './sieve-cache'
-import type { DefaultPreloadOptions, PreloadOption } from './preload-strategies'
+import type { PreloadOption } from './preload-strategies/index'
 import type { RouteInterpolation } from './path'
 import type {
   ProcessRouteTreeResult,
@@ -227,6 +227,8 @@ export interface RouterOptions<
    *
    * If `'viewport'`, routes will be preloaded by default when they are within the viewport.
    *
+   * A preload strategy, eg. `batchedViewportPreload()`, decides on its own (experimental, React only for now).
+   *
    * @default false
    * @link [API Docs](https://tanstack.com/router/latest/docs/framework/react/api/router/RouterOptionsType#defaultpreload-property)
    * @link [Guide](https://tanstack.com/router/latest/docs/framework/react/guide/preloading)
@@ -241,13 +243,6 @@ export interface RouterOptions<
    * @link [Guide](https://tanstack.com/router/latest/docs/framework/react/guide/preloading#preload-delay)
    */
   defaultPreloadDelay?: number
-  /**
-   * Router-wide options for each preload strategy, by name. They apply to the
-   * string modes and to strategies created without those options, eg.
-   * `{ viewport: { rootMargin: '200px' }, batchedViewport: { delay: 150 } }`.
-   * Options passed to a strategy win.
-   */
-  defaultPreloadOptions?: DefaultPreloadOptions
   /**
    * The default `preloadIntentProximity` a route should use if no preloadIntentProximity is provided.
    *

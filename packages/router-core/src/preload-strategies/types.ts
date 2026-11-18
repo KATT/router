@@ -1,9 +1,9 @@
 import type { AnyRouter } from '../router'
-import type { BatchedViewportPreloadOptions } from './batched-viewport'
-import type { IntentPreloadOptions } from './intent'
-import type { ViewportPreloadOptions } from './viewport'
 
-/** What a strategy gets for one Link on the client. */
+/**
+ * What a strategy gets for one Link on the client.
+ * @experimental
+ */
 export interface PreloadLink {
   /** The link's element, if its ref is attached */
   element: Element | null
@@ -15,7 +15,11 @@ export interface PreloadLink {
   preload: () => void
 }
 
-/** How a strategy reacts to the Link's own events. Every one is optional. */
+/**
+ * How a strategy reacts to events on the link's element. Every one is
+ * optional.
+ * @experimental
+ */
 export interface PreloadHandlers {
   /** Focus or mouse enter */
   enter?: () => void
@@ -23,44 +27,29 @@ export interface PreloadHandlers {
   leave?: () => void
   /** Touch start */
   touch?: () => void
-  /** A click, right before it navigates: drop anything pending */
+  /** A click on the link: drop anything pending */
   cancel?: () => void
   /** The Link unmounts, or its options change and the strategy starts again */
   cleanup?: () => void
 }
 
-/** A strategy started for one router: called for each Link. */
+/**
+ * A strategy started for one router: called for each Link.
+ * @experimental
+ */
 export type LinkPreloader = (link: PreloadLink) => PreloadHandlers | void
 
 /**
- * Decides when Links preload. It's started once per router, which is where
- * it reads the router's defaults and keeps state its links share, and the
- * function it returns runs for each Link on the client: when the Link mounts
- * and again when its options change. `'intent'`, `'viewport'` and `'render'`
- * are the built-in strategies by name.
- */
-export type PreloadStrategy = (router: AnyRouter) => LinkPreloader
-
-/**
- * Each named strategy's options, as `defaultPreloadOptions` takes them. Add
- * your own strategy's by declaration merging:
+ * Decides when Links preload. Make one with `createPreloadStrategy`.
  *
- * ```ts
- * declare module '@tanstack/router-core' {
- *   interface PreloadStrategyOptions {
- *     idle: { timeout?: number }
- *   }
- * }
- * ```
+ * A Link calls it in an effect, on the client, with its router, its own ref,
+ * a function that preloads its destination and its own `preloadDelay`, and
+ * calls what it returns when the Link unmounts or its options change.
+ * @experimental
  */
-export interface PreloadStrategyOptions {
-  intent: IntentPreloadOptions
-  viewport: ViewportPreloadOptions
-  render: object
-  batchedViewport: BatchedViewportPreloadOptions
-}
-
-/** Router-wide options per named strategy */
-export type DefaultPreloadOptions = {
-  [TName in keyof PreloadStrategyOptions]?: PreloadStrategyOptions[TName]
-}
+export type PreloadStrategy = (
+  router: AnyRouter,
+  ref: { readonly current: Element | null },
+  preload: () => void,
+  delay: number | undefined,
+) => (() => void) | void

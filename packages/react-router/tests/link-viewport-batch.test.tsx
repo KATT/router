@@ -6,6 +6,7 @@ import {
   RouterProvider,
   batchedViewportPreload,
   createMemoryHistory,
+  createPreloadStrategy,
   createRootRoute,
   createRoute,
   createRouter,
@@ -15,10 +16,8 @@ import {
 } from '../src'
 import type {
   BatchedViewportPreloadOptions,
-  DefaultPreloadOptions,
   PreloadLink,
   PreloadOption,
-  PreloadStrategy,
 } from '../src'
 
 // One callback per observed element, so tests can scroll links independently.
@@ -73,7 +72,6 @@ async function setup(
     // Called on every render of every link, as an inline prop would be
     inlinePreload?: () => PreloadOption
     linkDelay?: number
-    defaultPreloadOptions?: DefaultPreloadOptions
   } = {},
 ) {
   // A link's own `preload` wins over the router's default
@@ -112,7 +110,6 @@ async function setup(
     routeTree: rootRoute.addChildren([indexRoute, postRoute]),
     history: createMemoryHistory(),
     defaultPreloadDelay: 50,
-    defaultPreloadOptions: options.defaultPreloadOptions,
     defaultPreload: options.batch
       ? batchedViewportPreload(
           options.batch === true ? undefined : options.batch,
@@ -259,6 +256,12 @@ describe('strategies by import work like their strings', () => {
 
       fireEvent.touchStart(links.c)
       expect(preloads.map(([id]) => id)).toEqual(['b', 'c'])
+
+      // A click cancels a pending hover preload before it navigates
+      fireEvent.mouseEnter(links.a)
+      fireEvent.click(links.a)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(preloads.map(([id]) => id)).toEqual(['b', 'c'])
     },
   )
 
@@ -268,16 +271,30 @@ describe('strategies by import work like their strings', () => {
       const { preloads, scroll, links } = await setup({ preload })
 
       fireEvent.mouseEnter(links.b)
+      fireEvent.touchStart(links.b)
       scroll('a', true)
-      await vi.advanceTimersByTimeAsync(50)
+      scroll('c', true)
+      await vi.advanceTimersByTimeAsync(20)
+      // Leaving before the delay cancels
+      scroll('c', false)
+      await vi.advanceTimersByTimeAsync(30)
       expect(preloads.map(([id]) => id)).toEqual(['a'])
+      expect(rootMargins).toEqual(['100px', '100px', '100px'])
+      expect(vi.getTimerCount()).toBe(0)
     },
   )
 
   test.each([['render'], [renderPreload()]] as const)(
     'render: %s',
     async (preload) => {
-      const { preloads } = await setup({ preload })
+      const { preloads, links } = await setup({ preload })
+      expect(preloads.map(([id]) => id)).toEqual(['a', 'b', 'c'])
+
+      // Once per link: re-rendering, hovering or touching adds nothing
+      fireEvent.click(screen.getByRole('button', { name: 'rerender' }))
+      fireEvent.mouseEnter(links.a)
+      fireEvent.touchStart(links.a)
+      await vi.advanceTimersByTimeAsync(50)
       expect(preloads.map(([id]) => id)).toEqual(['a', 'b', 'c'])
     },
   )
@@ -334,30 +351,6 @@ describe('strategies by import work like their strings', () => {
     expect(second.preloads.map(([id]) => id)).toEqual(['a'])
   })
 
-  test("the router's defaultPreloadOptions apply per strategy name", async () => {
-    // The string mode picks up its name's router-wide options
-    await setup({
-      preload: 'viewport',
-      defaultPreloadOptions: { viewport: { rootMargin: '250px' } },
-    })
-    expect(rootMargins).toEqual(['250px', '250px', '250px'])
-
-    cleanup()
-    vi.useRealTimers()
-    rootMargins = []
-    // Options passed to the strategy win over the router's
-    const { preloads, scroll } = await setup({
-      inlinePreload: () => batchedViewportPreload({ rootMargin: '10px' }),
-      defaultPreloadOptions: {
-        batchedViewport: { delay: 20, rootMargin: '999px' },
-      },
-    })
-    expect(rootMargins).toEqual(['10px'])
-    scroll('a', true)
-    await vi.advanceTimersByTimeAsync(20)
-    expect(preloads.map(([id]) => id)).toEqual(['a'])
-  })
-
   test('viewport strategies take a rootMargin', async () => {
     await setup({ preload: viewportPreload({ rootMargin: '300px' }) })
     expect(rootMargins).toEqual(['300px', '300px', '300px'])
@@ -375,17 +368,48 @@ describe('strategies by import work like their strings', () => {
     expect(preloads.map(([id]) => id)).toEqual(['a'])
   })
 
+  test('createPreloadStrategy starts a strategy once per router', async () => {
+    const started: Array<unknown> = []
+    const eager = createPreloadStrategy<{ id?: string }>((_options, router) => {
+      started.push(router)
+      return (link) => ({ enter: link.preload })
+    })
+    const { preloads, links } = await setup({
+      inlinePreload: () => eager({ id: 'x' }),
+    })
+    expect(started).toHaveLength(1)
+    fireEvent.mouseEnter(links.a)
+    expect(preloads.map(([id]) => id)).toEqual(['a'])
+
+    cleanup()
+    vi.useRealTimers()
+    // A new router starts it again
+    await setup({ preload: eager({ id: 'x' }) })
+    expect(started).toHaveLength(2)
+    expect(started[0]).not.toBe(started[1])
+  })
+
   test('a custom strategy decides on its own', async () => {
     // Hover or focus preloads at once, and leaving doesn't cancel anything
-    const eager: PreloadStrategy = () => (link: PreloadLink) => ({
+    const cleanups: Array<Element | null> = []
+    const eager = createPreloadStrategy(() => (link: PreloadLink) => ({
       enter: link.preload,
-    })
-    const { preloads, links } = await setup({ preload: eager })
+      cleanup: () => cleanups.push(link.element),
+    }))
+    const { preloads, links, view } = await setup({ preload: eager() })
 
     fireEvent.mouseEnter(links.a)
     fireEvent.mouseLeave(links.a)
     expect(preloads.map(([id]) => id)).toEqual(['a'])
     fireEvent.touchStart(links.b)
     expect(preloads.map(([id]) => id)).toEqual(['a'])
+    fireEvent.focus(links.c)
+    expect(preloads.map(([id]) => id)).toEqual(['a', 'c'])
+
+    // Unmounting cleans up and stops listening
+    view.unmount()
+    expect(cleanups).toEqual([links.a, links.b, links.c])
+    fireEvent.mouseEnter(links.a)
+    expect(preloads.map(([id]) => id)).toEqual(['a', 'c'])
   })
 })

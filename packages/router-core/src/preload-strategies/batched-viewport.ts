@@ -1,16 +1,17 @@
 import { createPreloadStrategy, delayOf } from './shared'
 
+/** @experimental */
 export interface BatchedViewportPreloadOptions {
   /**
    * Milliseconds the page must stay still (no intersection change, scroll or
    * resize) before the batch preloads. The last link to join sets it, and its
    * own `preloadDelay` wins.
-   * @default `defaultPreloadOptions.batchedViewport.delay`, else `defaultPreloadDelay`
+   * @default `defaultPreloadDelay`
    */
   delay?: number
   /**
    * How far outside the viewport a link counts as in view.
-   * @default `defaultPreloadOptions.batchedViewport.rootMargin`, else `'100px'`
+   * @default `'100px'`
    */
   rootMargin?: string
 }
@@ -83,10 +84,10 @@ function createBatch(rootMargin: string) {
  * shares it, whether through `defaultPreload: batchedViewportPreload()` or
  * `<Link preload={batchedViewportPreload()} />` inline (the same options give
  * the same strategy). It starts in the browser, with the first link.
+ * @experimental
  */
-export const batchedViewportPreload = createPreloadStrategy(
-  'batchedViewport',
-  (options, router) => {
+export const batchedViewportPreload =
+  createPreloadStrategy<BatchedViewportPreloadOptions>((options, router) => {
     let batch: ReturnType<typeof createBatch> | undefined
     return (link) => {
       const { element } = link
@@ -100,5 +101,4 @@ export const batchedViewportPreload = createPreloadStrategy(
         cleanup: () => shared.remove(element),
       }
     }
-  },
-)
+  })
