@@ -6,14 +6,17 @@ import type { LinkPreloader, PreloadStrategy } from './types'
 
 export { intentPreload, renderPreload, viewportPreload }
 export { batchedViewportPreload } from './batched-viewport'
+export { createPreloadStrategy } from './shared'
 export type { BatchedViewportPreloadOptions } from './batched-viewport'
 export type { IntentPreloadOptions } from './intent'
 export type { ViewportPreloadOptions } from './viewport'
 export type {
+  DefaultPreloadOptions,
   LinkPreloader,
   PreloadHandlers,
   PreloadLink,
   PreloadStrategy,
+  PreloadStrategyOptions,
 } from './types'
 
 /** A `preload` option as Links and the router take it */

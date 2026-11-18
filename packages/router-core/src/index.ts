@@ -306,6 +306,7 @@ export { retainSearchParams, stripSearchParams } from './searchMiddleware'
 
 export {
   batchedViewportPreload,
+  createPreloadStrategy,
   intentPreload,
   renderPreload,
   resolvePreloadStrategy,
@@ -313,12 +314,14 @@ export {
 } from './preload-strategies'
 export type {
   BatchedViewportPreloadOptions,
+  DefaultPreloadOptions,
   IntentPreloadOptions,
   LinkPreloader,
   PreloadHandlers,
   PreloadLink,
   PreloadOption,
   PreloadStrategy,
+  PreloadStrategyOptions,
   ViewportPreloadOptions,
 } from './preload-strategies'
 

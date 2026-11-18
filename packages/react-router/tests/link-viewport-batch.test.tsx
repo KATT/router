@@ -15,6 +15,7 @@ import {
 } from '../src'
 import type {
   BatchedViewportPreloadOptions,
+  DefaultPreloadOptions,
   PreloadLink,
   PreloadOption,
   PreloadStrategy,
@@ -72,7 +73,7 @@ async function setup(
     // Called on every render of every link, as an inline prop would be
     inlinePreload?: () => PreloadOption
     linkDelay?: number
-    viewportMargin?: string
+    defaultPreloadOptions?: DefaultPreloadOptions
   } = {},
 ) {
   // A link's own `preload` wins over the router's default
@@ -111,7 +112,7 @@ async function setup(
     routeTree: rootRoute.addChildren([indexRoute, postRoute]),
     history: createMemoryHistory(),
     defaultPreloadDelay: 50,
-    defaultPreloadViewportMargin: options.viewportMargin,
+    defaultPreloadOptions: options.defaultPreloadOptions,
     defaultPreload: options.batch
       ? batchedViewportPreload(
           options.batch === true ? undefined : options.batch,
@@ -333,9 +334,28 @@ describe('strategies by import work like their strings', () => {
     expect(second.preloads.map(([id]) => id)).toEqual(['a'])
   })
 
-  test("viewport strategies use the router's defaultPreloadViewportMargin", async () => {
-    await setup({ preload: 'viewport', viewportMargin: '250px' })
+  test("the router's defaultPreloadOptions apply per strategy name", async () => {
+    // The string mode picks up its name's router-wide options
+    await setup({
+      preload: 'viewport',
+      defaultPreloadOptions: { viewport: { rootMargin: '250px' } },
+    })
     expect(rootMargins).toEqual(['250px', '250px', '250px'])
+
+    cleanup()
+    vi.useRealTimers()
+    rootMargins = []
+    // Options passed to the strategy win over the router's
+    const { preloads, scroll } = await setup({
+      inlinePreload: () => batchedViewportPreload({ rootMargin: '10px' }),
+      defaultPreloadOptions: {
+        batchedViewport: { delay: 20, rootMargin: '999px' },
+      },
+    })
+    expect(rootMargins).toEqual(['10px'])
+    scroll('a', true)
+    await vi.advanceTimersByTimeAsync(20)
+    expect(preloads.map(([id]) => id)).toEqual(['a'])
   })
 
   test('viewport strategies take a rootMargin', async () => {

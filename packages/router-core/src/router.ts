@@ -57,7 +57,7 @@ import {
 } from './rewrite'
 import { createRouterStores } from './stores'
 import type { SieveCache } from './sieve-cache'
-import type { PreloadOption } from './preload-strategies'
+import type { DefaultPreloadOptions, PreloadOption } from './preload-strategies'
 import type { RouteInterpolation } from './path'
 import type {
   ProcessRouteTreeResult,
@@ -242,13 +242,12 @@ export interface RouterOptions<
    */
   defaultPreloadDelay?: number
   /**
-   * How far outside the viewport a link counts as in view for viewport
-   * preloading, as an IntersectionObserver `rootMargin`. A viewport strategy's
-   * own `rootMargin` wins.
-   *
-   * @default '100px'
+   * Router-wide options for each preload strategy, by name. They apply to the
+   * string modes and to strategies created without those options, eg.
+   * `{ viewport: { rootMargin: '200px' }, batchedViewport: { delay: 150 } }`.
+   * Options passed to a strategy win.
    */
-  defaultPreloadViewportMargin?: string
+  defaultPreloadOptions?: DefaultPreloadOptions
   /**
    * The default `preloadIntentProximity` a route should use if no preloadIntentProximity is provided.
    *

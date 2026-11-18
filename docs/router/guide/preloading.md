@@ -125,18 +125,43 @@ The batch belongs to the router. Every link on it that uses `batchedViewportPrel
 | `'viewport'` | `viewportPreload({ delay, rootMargin })` |
 | `'render'`   | `renderPreload()`                        |
 
-A link's own `preloadDelay` wins over a strategy's `delay`, which wins over the router's `defaultPreloadDelay`. A strategy's `rootMargin` wins over the router's `defaultPreloadViewportMargin` (`'100px'`). The same options always give the same strategy, so creating one inline in render is fine.
-
-A strategy is started once per router, and returns what runs for each link on the client:
+Set options for every use of a strategy on the router with `defaultPreloadOptions`, by name. They also apply to the strings:
 
 ```tsx
-import type { PreloadStrategy } from '@tanstack/react-router'
-
-// Hover or focus preloads at once, and leaving doesn't cancel it
-const eager: PreloadStrategy = (router) => (link) => ({ enter: link.preload })
+const router = createRouter({
+  // ...
+  defaultPreload: 'viewport',
+  defaultPreloadOptions: {
+    viewport: { rootMargin: '200px' },
+    batchedViewport: { delay: 150 },
+  },
+})
 ```
 
-The router stage is where a strategy reads the router's options and keeps state its links share. The link stage gets the link's element, its own `preloadDelay` and a `preload()` function, and can return handlers: `enter` (focus or mouse enter), `leave` (blur or mouse leave), `touch`, `cancel` (a click, before it navigates) and `cleanup` (the link unmounts or its options change).
+For a delay, a link's own `preloadDelay` wins, then the options passed to the strategy, then `defaultPreloadOptions`, then `defaultPreloadDelay`. `rootMargin` defaults to `'100px'`. The same options always give the same strategy, so creating one inline in render is fine.
+
+Write your own with `createPreloadStrategy`. It's started once per router, with the router's `defaultPreloadOptions` for its name merged under the options it's called with, and returns what runs for each link on the client:
+
+```tsx
+import { createPreloadStrategy } from '@tanstack/react-router'
+
+declare module '@tanstack/react-router' {
+  interface PreloadStrategyOptions {
+    eager: { onTouch?: boolean }
+  }
+}
+
+// Hover or focus preloads at once, and leaving doesn't cancel it
+export const eagerPreload = createPreloadStrategy(
+  'eager',
+  (options, router) => (link) => ({
+    enter: link.preload,
+    touch: options.onTouch ? link.preload : undefined,
+  }),
+)
+```
+
+The router stage is where a strategy reads its options and keeps state its links share. The link stage gets the link's element, its own `preloadDelay` and a `preload()` function, and can return handlers: `enter` (focus or mouse enter), `leave` (blur or mouse leave), `touch`, `cancel` (a click, before it navigates) and `cleanup` (the link unmounts or its options change).
 
 ## Built-in Preloading, Freshness, and Retention
 

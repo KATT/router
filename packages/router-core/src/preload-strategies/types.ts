@@ -1,4 +1,7 @@
 import type { AnyRouter } from '../router'
+import type { BatchedViewportPreloadOptions } from './batched-viewport'
+import type { IntentPreloadOptions } from './intent'
+import type { ViewportPreloadOptions } from './viewport'
 
 /** What a strategy gets for one Link on the client. */
 export interface PreloadLink {
@@ -37,3 +40,27 @@ export type LinkPreloader = (link: PreloadLink) => PreloadHandlers | void
  * are the built-in strategies by name.
  */
 export type PreloadStrategy = (router: AnyRouter) => LinkPreloader
+
+/**
+ * Each named strategy's options, as `defaultPreloadOptions` takes them. Add
+ * your own strategy's by declaration merging:
+ *
+ * ```ts
+ * declare module '@tanstack/router-core' {
+ *   interface PreloadStrategyOptions {
+ *     idle: { timeout?: number }
+ *   }
+ * }
+ * ```
+ */
+export interface PreloadStrategyOptions {
+  intent: IntentPreloadOptions
+  viewport: ViewportPreloadOptions
+  render: object
+  batchedViewport: BatchedViewportPreloadOptions
+}
+
+/** Router-wide options per named strategy */
+export type DefaultPreloadOptions = {
+  [TName in keyof PreloadStrategyOptions]?: PreloadStrategyOptions[TName]
+}
