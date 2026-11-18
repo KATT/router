@@ -2,9 +2,9 @@ import {
   Link,
   createFileRoute,
   linkOptions,
+  intentPreload,
   viewportPreload,
   renderPreload,
-  intentPreload,
 } from '@tanstack/react-router'
 const postsLink = linkOptions({ to: '/posts', preload: viewportPreload() })
 const navLinks = linkOptions([

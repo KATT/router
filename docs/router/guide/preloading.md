@@ -210,10 +210,11 @@ const router = createRouter({ routeTree, defaultPreload: viewportPreload() })
 const link = <Link to="/posts" preload={intentPreload()} />
 ```
 
-- It rewrites `preload="..."` and `preload={'...'}` on components (not on elements like `<video>`), and `preload: '...'` and `defaultPreload: '...'` in any object, for the three strings only.
-- It only looks at your own files that import from `@tanstack/react-router` or `@tanstack/react-start`, not at `node_modules`.
+- It only rewrites the router's own options, and only literals of the three strings (`'intent'`, `'intent' as const` and the like): the `preload` prop of `<Link>` and of components `createLink` makes in the same file, `<RouterProvider defaultPreload>`, `defaultPreload` in `createRouter({...})`, and `preload` in `linkOptions({...})` (or an array of them) and `useLinkProps({...})`. These must be imported from `@tanstack/react-router`, by name or as a namespace (`Router.createRouter(...)`).
+- Everything else keeps its strings: other objects, such as a loader's or a server function's data, elements like `<video>`, member and namespaced names like `<motion.video>` or `<Router.Link>`, and your own wrapper components, such as a `MyLink` imported from another file.
+- It looks at your own JavaScript and TypeScript files that import `@tanstack/react-router`, not at `node_modules`, and not at MDX, Vue or HTML files. Files it can't parse are left as they are, for your bundler to report.
 - Strings it can't see as literals, such as `preload={mode}`, strings from a library, or options built at run time, still load their strategy on demand. That's why the on-demand chunk is always emitted: the build can't prove that no string reaches a Link.
-- It's for React only, and the option is in `tanstackRouter()`. TanStack Start's plugin doesn't pass it on yet.
+- It's for React only. Set it in `tanstackRouter()`, `tsr.config.json`, or with TanStack Start, in `tanstackStart({ router: { experimental: { compilePreloadStrings: true } } })`.
 
 #### Bundle size
 
