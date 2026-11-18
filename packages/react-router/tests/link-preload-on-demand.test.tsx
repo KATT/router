@@ -9,13 +9,12 @@ import {
   createMemoryHistory,
   createRootRoute,
   createRouter,
-  intentPreload,
 } from '../src'
 import type * as Core from '@tanstack/router-core'
 import type { PreloadOption } from '../src'
 
-// Each string mode loads its strategy's chunk on demand. These tests run in
-// order: a chunk loads once per file, and the first tests run before any is
+// `'viewport'` loads its strategy's chunk on demand. These tests run in
+// order: the chunk loads once per file, and the first tests run before it is
 // loaded. A chunk can't load while a test runs synchronously.
 vi.mock('@tanstack/router-core', async (importOriginal) => {
   const core = await importOriginal<typeof Core>()
@@ -122,7 +121,7 @@ test('disabled, external and reloadDocument Links start no strategy and load not
   expect(preload).not.toHaveBeenCalled()
 })
 
-test('Links that mount while their chunks load follow option changes, and only mounted ones start', async () => {
+test('Links that mount while the viewport chunk loads follow option changes, and only mounted ones start; intent needs no chunk', async () => {
   const add = vi.spyOn(Element.prototype, 'addEventListener')
   const { wrap, preload } = setup()
   const preloaded = () =>
@@ -133,7 +132,7 @@ test('Links that mount while their chunks load follow option changes, and only m
     to?: string
     preloadDelay?: number
   }
-  // Each Link's options can change while its chunk loads
+  // Each Link's options can change while the chunk loads
   const setters: Record<string, (options: Options) => void> = {}
   function Changing({ id, initial }: { id: string; initial: Options }) {
     const [options, setOptions] = React.useState(initial)
@@ -146,7 +145,7 @@ test('Links that mount while their chunks load follow option changes, and only m
   }
   const unmounted = render(
     wrap(
-      <Link to="/gone" preload="render">
+      <Link to="/gone" preload="viewport">
         gone
       </Link>,
     ),
@@ -159,91 +158,76 @@ test('Links that mount while their chunks load follow option changes, and only m
             strict
           </Link>
         </React.StrictMode>
-        <Changing id="toViewport" initial={{ preload: 'intent' }} />
-        <Changing id="toFunction" initial={{ preload: 'render' }} />
-        <Changing id="toFalse" initial={{ preload: 'render' }} />
-        <Changing id="toChanged" initial={{ preload: 'render' }} />
+        <Changing id="toIntent" initial={{ preload: 'viewport' }} />
+        <Changing id="toFunction" initial={{ preload: 'viewport' }} />
+        <Changing id="toFalse" initial={{ preload: 'viewport' }} />
+        <Changing id="toChanged" initial={{ preload: 'viewport' }} />
         <Changing
           id="delayChanged"
-          initial={{ preload: 'intent', preloadDelay: 0 }}
+          initial={{ preload: 'viewport', preloadDelay: 0 }}
         />
       </>,
     ),
   )
   unmounted.unmount()
 
-  // Interactions before the load: nothing preloads, nothing throws
-  for (const name of ['strict', 'toViewport', 'delayChanged']) {
-    const link = screen.getByRole('link', { name })
-    fireEvent.mouseEnter(link)
-    fireEvent.focus(link)
-    fireEvent.touchStart(link)
-  }
+  // 'intent' runs through the Link's own event props: it has no chunk, and
+  // adds no listeners
+  const strict = screen.getByRole('link', { name: 'strict' })
+  fireEvent.mouseEnter(strict)
+  expect(preloaded()).toEqual(['/strict'])
+  expect(add.mock.contexts.filter((element) => element === strict)).toEqual([])
+  // Nothing observes while the viewport chunk loads
+  expect(observed.size).toBe(0)
+
+  const strategy = vi.fn()
   act(() => {
-    setters.toViewport!({ preload: 'viewport', preloadDelay: 0 })
-    setters.toFunction!({ preload: intentPreload(), preloadDelay: 0 })
+    setters.toIntent!({ preload: 'intent', preloadDelay: 0 })
+    setters.toFunction!({ preload: strategy })
     setters.toFalse!({ preload: false })
-    setters.toChanged!({ preload: 'render', to: '/changed' })
-    setters.delayChanged!({ preload: 'intent', preloadDelay: 30 })
+    setters.toChanged!({ preload: 'viewport', to: '/changed', preloadDelay: 0 })
+    setters.delayChanged!({ preload: 'viewport', preloadDelay: 30 })
   })
-  expect(preload).not.toHaveBeenCalled()
+  // string -> function: the function runs at once
+  expect(strategy).toHaveBeenCalledTimes(1)
+  // viewport -> intent: hover preloads at once
+  fireEvent.mouseEnter(screen.getByRole('link', { name: 'toIntent' }))
+  expect(preloaded()).toEqual(['/strict', '/toIntent'])
 
   await loadChunk()
-  // Only the mounted 'render' Link with its latest destination
-  expect(preloaded()).toEqual(['/changed'])
+  // Only the mounted Links that still use 'viewport' observe
+  const toChanged = screen.getByRole('link', { name: 'toChanged' })
+  const delayChanged = screen.getByRole('link', { name: 'delayChanged' })
+  expect([...observed.keys()]).toEqual([toChanged, delayChanged])
 
-  // The StrictMode Link started once: one set of intent listeners
-  const strict = screen.getByRole('link', { name: 'strict' })
-  const listeners = add.mock.calls.filter(
-    (_, i) => add.mock.contexts[i] === strict,
-  )
-  expect(listeners.map(([type]) => type)).toEqual([
-    'mouseover',
-    'focusin',
-    'mouseleave',
-    'focusout',
-    'touchstart',
-  ])
-  fireEvent.mouseEnter(strict)
-  expect(preloaded()).toEqual(['/changed', '/strict'])
-
-  // intent -> viewport: the viewport strategy runs, hover doesn't preload
-  const toViewport = screen.getByRole('link', { name: 'toViewport' })
-  fireEvent.mouseEnter(toViewport)
-  expect(preloaded()).toHaveLength(2)
-  act(() => {
-    observed.get(toViewport)!(
-      [
-        {
-          isIntersecting: true,
-          target: toViewport,
-        } as unknown as IntersectionObserverEntry,
-      ],
-      {} as IntersectionObserver,
-    )
-  })
-  expect(preloaded()).toEqual(['/changed', '/strict', '/toViewport'])
-
-  // string -> function: the function runs, 'render' never did
-  fireEvent.mouseEnter(screen.getByRole('link', { name: 'toFunction' }))
-  expect(preloaded()).toEqual([
-    '/changed',
-    '/strict',
-    '/toViewport',
-    '/toFunction',
-  ])
+  const intersect = (element: Element) =>
+    act(() => {
+      observed.get(element)!(
+        [
+          {
+            isIntersecting: true,
+            target: element,
+          } as unknown as IntersectionObserverEntry,
+        ],
+        {} as IntersectionObserver,
+      )
+    })
+  // Its latest destination
+  intersect(toChanged)
+  expect(preloaded()).toHaveLength(3)
+  expect(preloaded()[2]).toBe('/changed')
 
   // preloadDelay changed: the new delay counts
   vi.useFakeTimers()
-  fireEvent.mouseEnter(screen.getByRole('link', { name: 'delayChanged' }))
-  expect(preloaded()).toHaveLength(4)
+  intersect(delayChanged)
+  expect(preloaded()).toHaveLength(3)
   await vi.advanceTimersByTimeAsync(30)
-  expect(preloaded()).toHaveLength(5)
-  expect(preloaded()[4]).toBe('/delayChanged')
+  expect(preloaded()).toHaveLength(4)
+  expect(preloaded()[3]).toBe('/delayChanged')
 
   // string -> false: nothing
   fireEvent.mouseEnter(screen.getByRole('link', { name: 'toFalse' }))
-  expect(preloaded()).toHaveLength(5)
+  expect(preloaded()).toHaveLength(4)
 })
 
 test('hydrating a string-mode Link matches the server markup', async () => {

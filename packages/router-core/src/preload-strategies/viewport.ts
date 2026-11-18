@@ -50,9 +50,7 @@ export function viewport(
   if (typeof IntersectionObserver !== 'function') {
     return
   }
-  // The link's own delay, else the strategy's, else the router's. Each
-  // chunk has its own copy: a module the two shared would be a chunk of its
-  // own that each also loads.
+  // The link's own delay, else the strategy's, else the router's
   const wait = delay ?? options.delay ?? router.options.defaultPreloadDelay
   // Never 0 while pending: browsers number timers from 1
   let timer: ReturnType<typeof setTimeout> | 0 = 0

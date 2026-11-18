@@ -260,20 +260,18 @@ describe('re-renders that keep the destination keep the strategy running', () =>
     )
   }
 
-  test('an inline search function does not re-add listeners', () => {
-    const add = vi.spyOn(Element.prototype, 'addEventListener')
-    const remove = vi.spyOn(Element.prototype, 'removeEventListener')
+  test('an inline search function does not restart the strategy', () => {
+    const stop = vi.fn()
+    const strategy = vi.fn(() => stop)
     const { mount } = setup()
-    mount(<App preload="intent" />)
-    const link = screen.getByRole('link')
-    const added = listenerCalls(add, link).length
-    expect(added).toBeGreaterThan(0)
+    mount(<App preload={strategy} />)
+    expect(strategy).toHaveBeenCalledTimes(1)
 
     for (let i = 0; i < 3; i++) {
       fireEvent.click(screen.getByRole('button', { name: 'rerender' }))
     }
-    expect(listenerCalls(add, link)).toHaveLength(added)
-    expect(listenerCalls(remove, link)).toEqual([])
+    expect(strategy).toHaveBeenCalledTimes(1)
+    expect(stop).not.toHaveBeenCalled()
   })
 
   test('a pending intent preload survives a no-op re-render', async () => {
@@ -574,26 +572,77 @@ describe('intent timer', () => {
     expect(preload).toHaveBeenCalledTimes(1)
   })
 
-  test("preventDefault() in the Link's own handlers doesn't stop it, and they are still called", () => {
-    const { preload, mount } = setup()
-    const handlers = {
-      onMouseEnter: vi.fn((e: React.SyntheticEvent) => e.preventDefault()),
-      onFocus: vi.fn((e: React.SyntheticEvent) => e.preventDefault()),
-      onTouchStart: vi.fn((e: React.SyntheticEvent) => e.preventDefault()),
-    }
+  test.each([['intent'], [intentPreload()]] as const)(
+    "preventDefault() in the Link's own handlers stops it (%s)",
+    (preloadOption) => {
+      const { preload, mount } = setup()
+      const handlers = {
+        onMouseEnter: vi.fn((e: React.SyntheticEvent) => e.preventDefault()),
+        onFocus: vi.fn((e: React.SyntheticEvent) => e.preventDefault()),
+        onTouchStart: vi.fn((e: React.SyntheticEvent) => e.preventDefault()),
+      }
+      mount(
+        <Link
+          to="/target"
+          preload={preloadOption}
+          preloadDelay={0}
+          {...handlers}
+        >
+          Target
+        </Link>,
+      )
+      const link = screen.getByRole('link')
+      fireEvent.mouseEnter(link)
+      fireEvent.focus(link)
+      fireEvent.touchStart(link)
+      expect(handlers.onMouseEnter).toHaveBeenCalledTimes(1)
+      expect(handlers.onFocus).toHaveBeenCalledTimes(1)
+      expect(handlers.onTouchStart).toHaveBeenCalledTimes(1)
+      expect(preload).not.toHaveBeenCalled()
+    },
+  )
+
+  test('intentPreload({ delay }) waits its delay; a link preloadDelay wins', async () => {
+    const { preload, mount } = setup({ defaultPreloadDelay: 50 })
     mount(
-      <Link to="/target" preload="intent" preloadDelay={0} {...handlers}>
+      <>
+        <Link to="/a" preload={intentPreload({ delay: 20 })}>
+          a
+        </Link>
+        <Link to="/b" preload={intentPreload({ delay: 20 })} preloadDelay={40}>
+          b
+        </Link>
+      </>,
+    )
+    vi.useFakeTimers()
+    fireEvent.mouseEnter(screen.getByRole('link', { name: 'a' }))
+    fireEvent.mouseEnter(screen.getByRole('link', { name: 'b' }))
+    await vi.advanceTimersByTimeAsync(19)
+    expect(preload).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(preload).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ to: '/a' }),
+    )
+    await vi.advanceTimersByTimeAsync(20)
+    expect(preload).toHaveBeenCalledTimes(2)
+    expect(preload).toHaveBeenLastCalledWith(
+      expect.objectContaining({ to: '/b' }),
+    )
+  })
+
+  test('unmounting cancels it', async () => {
+    const { preload, mount } = setup({ defaultPreloadDelay: 50 })
+    const view = mount(
+      <Link to="/target" preload="intent">
         Target
       </Link>,
     )
-    const link = screen.getByRole('link')
-    fireEvent.mouseEnter(link)
-    fireEvent.focus(link)
-    fireEvent.touchStart(link)
-    expect(handlers.onMouseEnter).toHaveBeenCalledTimes(1)
-    expect(handlers.onFocus).toHaveBeenCalledTimes(1)
-    expect(handlers.onTouchStart).toHaveBeenCalledTimes(1)
-    expect(preload).toHaveBeenCalledTimes(3)
+    vi.useFakeTimers()
+    fireEvent.mouseEnter(screen.getByRole('link'))
+    view.unmount()
+    await vi.advanceTimersByTimeAsync(50)
+    expect(preload).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
   })
 })
 
@@ -689,19 +738,30 @@ describe('render', () => {
 })
 
 describe('createLink', () => {
-  test('a component that drops the ref gets no preloading, and nothing throws', () => {
+  test('a component that drops the ref gets no strategy, and nothing throws; intent works through its props', () => {
     const { preload, mount } = setup()
     const NoRefLink = createLink(function NoRef(props: any) {
       const { ref: _ref, ...rest } = props
       return <a {...rest} />
     })
+    const strategy = vi.fn()
     mount(
-      <NoRefLink to="/target" preload="intent" preloadDelay={0}>
-        Target
-      </NoRefLink>,
+      <>
+        <NoRefLink to="/a" preload={strategy}>
+          a
+        </NoRefLink>
+        <NoRefLink to="/b" preload="intent" preloadDelay={0}>
+          b
+        </NoRefLink>
+      </>,
     )
-    fireEvent.mouseEnter(screen.getByRole('link'))
+    expect(strategy).not.toHaveBeenCalled()
+    fireEvent.mouseEnter(screen.getByRole('link', { name: 'a' }))
     expect(preload).not.toHaveBeenCalled()
+    fireEvent.mouseEnter(screen.getByRole('link', { name: 'b' }))
+    expect(preload).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ to: '/b' }),
+    )
   })
 
   test('a component that forwards the ref preloads', () => {

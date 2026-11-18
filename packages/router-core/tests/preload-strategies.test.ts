@@ -86,3 +86,35 @@ describe('the same options give the same strategy', () => {
     )
   })
 })
+
+// A React Link runs `intentPreload()` through its own event props, as it
+// does `'intent'`; another strategy can still call it with an element
+test('intentPreload() called directly listens to the element itself', () => {
+  vi.useFakeTimers()
+  const element = document.createElement('a')
+  const child = document.createElement('span')
+  element.append(child)
+  document.body.append(element)
+  const preload = vi.fn()
+  const stop = intentPreload({ delay: 10 })(
+    { options: {} } as AnyRouter,
+    { current: element },
+    preload,
+    undefined,
+  )
+  element.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+  // Moving onto its own child isn't a new enter
+  child.dispatchEvent(
+    new MouseEvent('mouseover', { bubbles: true, relatedTarget: element }),
+  )
+  vi.advanceTimersByTime(10)
+  expect(preload).toHaveBeenCalledTimes(1)
+  element.dispatchEvent(new Event('touchstart'))
+  expect(preload).toHaveBeenCalledTimes(2)
+
+  stop?.()
+  element.dispatchEvent(new Event('touchstart'))
+  expect(preload).toHaveBeenCalledTimes(2)
+  element.remove()
+  vi.useRealTimers()
+})

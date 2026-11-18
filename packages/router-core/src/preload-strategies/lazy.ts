@@ -1,9 +1,11 @@
+import { intentPreload } from './intent'
 import type { PreloadMode, PreloadStrategy } from './types'
 
-// How Links run a `preload` string. Strings the bundler plugin's
+// How Links run `'viewport'` and `'render'`. Strings the bundler plugin's
 // `compilePreloadStrings` rewrote never get here; any other string loads its
 // built-in strategy from that strategy's own chunk, so a page loads only the
-// strings its Links use.
+// strings its Links use. A React Link runs `'intent'` itself, through its
+// element's event props, so `'intent'` has no chunk.
 
 // Each string's strategy once loaded, else its load, from its first Link
 // until the load fails. Other strings have none. No prototype: a string such
@@ -20,13 +22,11 @@ const modes: Record<
  */
 export const loadPreloadString = (mode: string) =>
   (modes[mode] ??= (
-    mode === 'intent'
-      ? import('./strings/intent')
-      : mode === 'viewport'
-        ? import('./strings/viewport')
-        : mode === 'render'
-          ? import('./strings/render')
-          : undefined
+    mode === 'viewport'
+      ? import('./strings/viewport')
+      : mode === 'render'
+        ? import('./strings/render')
+        : undefined
   )?.then(
     (module) => (modes[mode] = module.default),
     // Once per failed load, however many Links wait on it; the next Link
@@ -41,14 +41,13 @@ export const loadPreloadString = (mode: string) =>
 /**
  * Loads the strategy a `preload` string stands for (every string's, without
  * one), once per page. Each is its own chunk, so apps load only those they
- * use. If a load fails, the promise rejects and the next call loads again.
+ * use; `'intent'` has none. If a load fails, the promise rejects and the next
+ * call loads again.
  * @experimental
  */
 export function loadPreloadStrings(mode?: PreloadMode): Promise<unknown> {
   return Promise.all(
-    (mode ? [mode] : (['intent', 'viewport', 'render'] as const)).map(
-      loadPreloadString,
-    ),
+    (mode ? [mode] : (['viewport', 'render'] as const)).map(loadPreloadString),
   )
 }
 
@@ -62,6 +61,9 @@ export function loadPreloadStrings(mode?: PreloadMode): Promise<unknown> {
  * @experimental
  */
 export function preloadString(mode: PreloadMode): PreloadStrategy {
+  if (mode === 'intent') {
+    return intentPreload()
+  }
   return (...args) => {
     const state = loadPreloadString(mode)
     if (typeof state === 'function') {

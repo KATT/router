@@ -483,17 +483,15 @@ describe('strategies attach only the listeners they need', () => {
     expect(removed).toEqual([])
   })
 
-  test('intentPreload(): hover, focus and touch', async () => {
-    const { added, removed } = await linkListeners(intentPreload())
-    const perLink = [
-      'mouseover',
-      'focusin',
-      'mouseleave',
-      'focusout',
-      'touchstart',
-    ]
-    expect(added).toEqual([...perLink, ...perLink, ...perLink])
-    expect(removed).toEqual(added)
+  // The Link runs it through the element's React event props
+  test.each([
+    ["'intent'", 'intent'],
+    ['intentPreload()', intentPreload()],
+    ['intentPreload({ delay })', intentPreload({ delay: 10 })],
+  ] as const)('%s: none', async (_, preload) => {
+    const { added, removed } = await linkListeners(preload)
+    expect(added).toEqual([])
+    expect(removed).toEqual([])
   })
 
   test('renderPreload(): none', async () => {

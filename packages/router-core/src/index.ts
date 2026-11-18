@@ -308,7 +308,6 @@ export {
   batchedViewportPreload,
   createPreloadStrategy,
   intentPreload,
-  linkNavigatingClick,
   loadPreloadStrings,
   preloadString,
   loadPreloadString,
@@ -318,6 +317,7 @@ export {
 export type {
   BatchedViewportPreloadOptions,
   IntentPreloadOptions,
+  IntentTag,
   LinkPreloader,
   PreloadLink,
   PreloadMode,

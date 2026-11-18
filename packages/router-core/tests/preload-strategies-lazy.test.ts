@@ -12,18 +12,14 @@ vi.mock('../src/preload-strategies/strings/render', async (importOriginal) => {
   }
   return importOriginal()
 })
-// The other strings' chunks count their loads
-const others = vi.hoisted(() => ({ intent: 0, viewport: 0 }))
-vi.mock('../src/preload-strategies/strings/intent', (importOriginal) => {
-  others.intent++
-  return importOriginal()
-})
+// The other chunk counts its loads
+const others = vi.hoisted(() => ({ viewport: 0 }))
 vi.mock('../src/preload-strategies/strings/viewport', (importOriginal) => {
   others.viewport++
   return importOriginal()
 })
 
-const router = {} as AnyRouter
+const router = { options: {} } as AnyRouter
 const unhandled = vi.fn()
 process.on('unhandledRejection', unhandled)
 
@@ -73,21 +69,22 @@ test('a failed load warns once, and the next string-mode Link loads again', asyn
   expect(warn).toHaveBeenCalledTimes(1)
   expect(unhandled).not.toHaveBeenCalled()
   // Only the string the Links use loaded
-  expect(others).toEqual({ intent: 0, viewport: 0 })
+  expect(others).toEqual({ viewport: 0 })
 })
 
 test('each string loads its own chunk, once, when its first Link mounts', async () => {
   const first = mountLink('viewport')
   const second = mountLink('viewport')
-  expect(others).toEqual({ intent: 0, viewport: 0 })
+  expect(others).toEqual({ viewport: 0 })
   await settle('viewport')
-  expect(others).toEqual({ intent: 0, viewport: 1 })
-  mountLink('intent')
+  expect(others).toEqual({ viewport: 1 })
+  // A React Link runs `'intent'` itself: it has no chunk
+  mountLink('intent').stop?.()
   await settle('intent')
-  expect(others).toEqual({ intent: 1, viewport: 1 })
+  expect(others).toEqual({ viewport: 1 })
   first.stop?.()
   second.stop?.()
   await expect(loadPreloadStrings()).resolves.toBeDefined()
-  expect(others).toEqual({ intent: 1, viewport: 1 })
+  expect(others).toEqual({ viewport: 1 })
   expect(chunk.imports).toBe(2)
 })

@@ -6,8 +6,7 @@ import {
   render,
   renderHook,
 } from '@testing-library/react'
-import { afterEach, beforeAll, expect, test, vi } from 'vitest'
-import { loadPreloadStrings } from '@tanstack/router-core'
+import { afterEach, expect, test, vi } from 'vitest'
 import {
   Link,
   RouterContextProvider,
@@ -16,12 +15,6 @@ import {
   createRouter,
   useLinkProps,
 } from '../src'
-
-// String modes load their strategies on demand: load them up front, so
-// events fired right after a render reach them.
-beforeAll(async () => {
-  await loadPreloadStrings()
-})
 
 afterEach(cleanup)
 
@@ -133,56 +126,65 @@ test.each(['https://other.example/', 'javascript:blocked()'])(
   },
 )
 
-test('onClick respects cancellation before and after the user handler', () => {
-  const router = createRouter({
-    routeTree: createRootRoute(),
-    history: createMemoryHistory(),
-    isServer: false,
-  })
-  const navigate = vi.spyOn(router, 'navigate').mockResolvedValue()
-  const userHandler = vi.fn((event: React.SyntheticEvent) => {
-    if (cancelInUserHandler) {
-      event.preventDefault()
-    }
-  })
-  let cancelInUserHandler = false
-  const { result } = renderHook(
-    () =>
-      useLinkProps({
-        to: '/target',
-        preload: 'intent',
-        preloadDelay: 0,
-        onClick: userHandler,
-      }),
-    {
-      wrapper: ({ children }) => (
-        <RouterContextProvider router={router}>
-          {children}
-        </RouterContextProvider>
-      ),
-    },
-  )
-  const anchor = document.createElement('a')
-  for (const initiallyPrevented of [true, false]) {
-    for (const cancel of [true, false]) {
-      cancelInUserHandler = cancel
-      userHandler.mockClear()
-      navigate.mockClear()
-      const event = {
-        defaultPrevented: initiallyPrevented,
-        preventDefault() {
-          this.defaultPrevented = true
-        },
-        currentTarget: anchor,
-        button: 0,
+test.each(['onClick', 'onFocus', 'onMouseEnter', 'onTouchStart'] as const)(
+  '%s respects cancellation before and after the user handler',
+  (eventName) => {
+    const router = createRouter({
+      routeTree: createRootRoute(),
+      history: createMemoryHistory(),
+      isServer: false,
+    })
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue()
+    const preload = vi
+      .spyOn(router, 'preloadRoute')
+      .mockResolvedValue(undefined)
+    const userHandler = vi.fn((event: React.SyntheticEvent) => {
+      if (cancelInUserHandler) {
+        event.preventDefault()
       }
-      result.current.onClick!(
-        event as unknown as React.MouseEvent<HTMLAnchorElement>,
-      )
-      expect(userHandler).toHaveBeenCalledTimes(initiallyPrevented ? 0 : 1)
-      expect(navigate).toHaveBeenCalledTimes(
-        initiallyPrevented || cancel ? 0 : 1,
-      )
+    })
+    let cancelInUserHandler = false
+    const { result } = renderHook(
+      () =>
+        useLinkProps({
+          to: '/target',
+          preload: 'intent',
+          preloadDelay: 0,
+          [eventName]: userHandler,
+        }),
+      {
+        wrapper: ({ children }) => (
+          <RouterContextProvider router={router}>
+            {children}
+          </RouterContextProvider>
+        ),
+      },
+    )
+    const internalHandler = eventName === 'onClick' ? navigate : preload
+    const anchor = document.createElement('a')
+    for (const initiallyPrevented of [true, false]) {
+      for (const cancel of [true, false]) {
+        cancelInUserHandler = cancel
+        userHandler.mockClear()
+        internalHandler.mockClear()
+        const event = {
+          defaultPrevented: initiallyPrevented,
+          preventDefault() {
+            this.defaultPrevented = true
+          },
+          currentTarget: anchor,
+          button: 0,
+        }
+        result.current[eventName]!(
+          event as unknown as React.MouseEvent<HTMLAnchorElement> &
+            React.TouchEvent<HTMLAnchorElement> &
+            React.FocusEvent<HTMLAnchorElement>,
+        )
+        expect(userHandler).toHaveBeenCalledTimes(initiallyPrevented ? 0 : 1)
+        expect(internalHandler).toHaveBeenCalledTimes(
+          initiallyPrevented || cancel ? 0 : 1,
+        )
+      }
     }
-  }
-})
+  },
+)

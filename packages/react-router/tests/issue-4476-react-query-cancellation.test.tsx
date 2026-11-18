@@ -10,8 +10,7 @@ import {
   QueryClientProvider,
   useQuery,
 } from '@tanstack/react-query'
-import { afterEach, beforeAll, expect, onTestFinished, test, vi } from 'vitest'
-import { loadPreloadStrings } from '@tanstack/router-core'
+import { afterEach, expect, onTestFinished, test, vi } from 'vitest'
 import {
   Link,
   Outlet,
@@ -22,12 +21,6 @@ import {
   createRoute,
   createRouter,
 } from '../src'
-
-// String modes load their strategies on demand: load them up front, so
-// events fired right after a render reach them.
-beforeAll(async () => {
-  await loadPreloadStrings()
-})
 
 afterEach(cleanup)
 

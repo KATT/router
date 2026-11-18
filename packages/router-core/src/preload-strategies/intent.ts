@@ -14,10 +14,15 @@ export interface IntentPreloadOptions {
 }
 
 /**
- * `'intent'`: focus or hover preloads after the delay, and leaving, or a
- * click the Link navigates on, first cancels it. Touch preloads at once. A
- * link that already has focus when the strategy starts (eg. `autoFocus`)
- * counts as focused.
+ * `'intent'` with options: focus or hover preloads after the delay, and
+ * leaving, or a click the Link navigates on, first cancels it. Touch preloads
+ * at once.
+ *
+ * A React Link runs it, like the string `'intent'`, through the element's own
+ * event props, so a handler of the Link's that calls `preventDefault()` stops
+ * it, as with `'intent'`. Called directly, eg. by another strategy, it listens
+ * to the element itself; a link that already has focus when it starts (eg.
+ * `autoFocus`) counts as focused.
  *
  * The same options (or none) give the same strategy, so calling it inline in
  * render is fine.
@@ -25,14 +30,22 @@ export interface IntentPreloadOptions {
  */
 export const intentPreload = /* @__PURE__ */ memoByOptions(
   (options: IntentPreloadOptions): PreloadStrategy =>
-    (router, ref, preload, delay) =>
-      intent(router, ref, preload, delay, options),
+    Object.assign(
+      ((router, ref, preload, delay) =>
+        intent(router, ref, preload, delay, options)) as PreloadStrategy,
+      { i: options } satisfies IntentTag,
+    ),
 )
 
 /**
- * The strategy `'intent'`'s own chunk is: `intentPreload()`, without the memo
- * or a wrapper. `intentPreload(options)` passes its options as a fifth
- * argument.
+ * What tells a React Link a strategy is `intentPreload(options)`: its
+ * options, as `i`.
+ * @internal
+ */
+export type IntentTag = { i?: IntentPreloadOptions }
+
+/**
+ * What `intentPreload(options)` listens with when it's called directly.
  * @internal
  */
 export function intent(
@@ -40,12 +53,10 @@ export function intent(
   ref: PreloadRef,
   preload: () => void,
   delay: number | undefined,
-  options: IntentPreloadOptions = {},
+  options: IntentPreloadOptions,
 ): ReturnType<PreloadStrategy> {
   const element = ref.current
-  // The link's own delay, else the strategy's, else the router's. Each
-  // chunk has its own copy: a module the two shared would be a chunk of its
-  // own that each also loads.
+  // The link's own delay, else the strategy's, else the router's
   const wait = delay ?? options.delay ?? router.options.defaultPreloadDelay
   // Never 0 while pending: browsers number timers from 1
   let timer: ReturnType<typeof setTimeout> | 0 = 0
