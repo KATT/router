@@ -1,5 +1,5 @@
-import type { ClickRef } from './click'
 import { createPreloadStrategy } from './shared'
+import type { ClickRef } from './click'
 
 /** @experimental */
 export interface BatchedViewportPreloadOptions {

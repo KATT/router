@@ -1,5 +1,5 @@
-import type { ClickRef } from './click'
 import { memoByOptions } from './memo'
+import type { ClickRef } from './click'
 import type { AnyRouter } from '../router'
 import type { PreloadRef, PreloadStrategy } from './types'
 
