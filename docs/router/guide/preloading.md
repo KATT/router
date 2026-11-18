@@ -129,7 +129,7 @@ In React, `preload` and `defaultPreload` also take a strategy, which decides whe
 | `'viewport'` | `viewportPreload({ delay, rootMargin })` |
 | `'render'`   | `renderPreload()`                        |
 
-Links run the strings with their own built-in code, so strategy code only ends up in your bundle when you import one.
+Links don't have their own code for the strings: a string loads its strategy on demand. See [Strings Load Their Strategy On Demand](#strings-load-their-strategy-on-demand).
 
 For a delay, a link's own `preloadDelay` wins, then the options passed to the strategy, then `defaultPreloadDelay`. `rootMargin` defaults to `'100px'`. The same options always give the same strategy, so creating one inline in render is fine. To use the same options across the app, create the strategy once and use it everywhere:
 
@@ -166,6 +166,54 @@ export const eagerPreload = createPreloadStrategy<{ onTouch?: boolean }>(
 ```
 
 The router stage is where a strategy reads its options and keeps state its links share. The link stage gets `{ element, key, delay, preload }`: the link's element (`null` until its ref is attached), an object that stays the same for the link's whole life, its own `preloadDelay` and a function that preloads its destination now. It listens to or observes the element itself, with whatever events it needs, and can return a cleanup that runs when the link unmounts or its options change.
+
+### Strings Load Their Strategy On Demand
+
+> **Experimental:** This is experimental and subject to change.
+
+In React, the strings `'intent'`, `'viewport'` and `'render'` are their built-in strategies. The built-in strategies are a separate chunk: the first Link with a string mode that mounts loads it, once per page, and starts its strategy when it's there. A Link that unmounts before then starts nothing. So:
+
+- An app with no preloading, or with imported strategies only, doesn't download the built-ins.
+- An app that uses the strings downloads them in a second request after the page loads, and its links start preloading once that's done.
+
+Since strategies listen to the element themselves, a `preventDefault()` in your `onMouseEnter`, `onFocus` or `onTouchStart` handler no longer stops an `'intent'` preload, and a custom link component made with `createLink` has to pass its `ref` on to the element for `'intent'` to work.
+
+#### Rewrite the strings at build time
+
+> **Experimental:** This is experimental and subject to change.
+
+With the bundler plugin, `experimental.compilePreloadStrings` rewrites the strings you write as literals to imports of their strategies, so they're in the chunk that uses them and need no second request:
+
+```ts
+// vite.config.ts
+import { tanstackRouter } from '@tanstack/router-plugin/vite'
+
+export default defineConfig({
+  plugins: [
+    tanstackRouter({
+      target: 'react',
+      experimental: { compilePreloadStrings: true },
+    }),
+    react(),
+  ],
+})
+```
+
+```tsx
+// What you write
+const router = createRouter({ routeTree, defaultPreload: 'viewport' })
+const link = <Link to="/posts" preload="intent" />
+
+// What the plugin compiles it to
+import { intentPreload, viewportPreload } from '@tanstack/react-router'
+const router = createRouter({ routeTree, defaultPreload: viewportPreload() })
+const link = <Link to="/posts" preload={intentPreload()} />
+```
+
+- It rewrites `preload="..."` and `preload={'...'}` on components (not on elements like `<video>`), and `preload: '...'` and `defaultPreload: '...'` in any object, for the three strings only.
+- It only looks at your own files that import from `@tanstack/react-router` or `@tanstack/react-start`, not at `node_modules`.
+- Strings it can't see as literals, such as `preload={mode}`, strings from a library, or options built at run time, still load their strategy on demand. That's why the on-demand chunk is always emitted: the build can't prove that no string reaches a Link.
+- It's for React only, and the option is in `tanstackRouter()`. TanStack Start's plugin doesn't pass it on yet.
 
 ## Built-in Preloading, Freshness, and Retention
 

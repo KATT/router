@@ -6,7 +6,8 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeAll, expect, test, vi } from 'vitest'
+import { loadPreloadStrategy } from '@tanstack/router-core'
 import {
   Link,
   Outlet,
@@ -16,6 +17,12 @@ import {
   createRoute,
   createRouter,
 } from '../src'
+
+// String modes load their strategies on demand: load them up front, so
+// events fired right after a render reach them.
+beforeAll(async () => {
+  await loadPreloadStrategy('intent')
+})
 
 afterEach(() => {
   vi.restoreAllMocks()

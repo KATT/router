@@ -28,7 +28,9 @@ export const intentPreload =
         delayOf(router, link, options.delay),
       )
       const listeners: Record<string, () => void> = {
-        mouseenter: start,
+        // Like React's `onMouseEnter`, which listens to `mouseover`. It
+        // bubbles from children, but a pending timer is kept.
+        mouseover: start,
         focusin: start,
         mouseleave: cancel,
         focusout: cancel,

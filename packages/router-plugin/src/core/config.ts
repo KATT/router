@@ -103,12 +103,33 @@ export const configSchema = generatorConfigSchema.extend({
         .optional(),
     })
     .optional(),
+  experimental: z
+    .object({
+      // TODO: This has been made stable and is now "autoCodeSplitting". Remove in next major version.
+      enableCodeSplitting: z.boolean().optional(),
+      /**
+       * Rewrites literal `preload` strings in your files to imports of the
+       * strategies they stand for, eg. `<Link preload="intent" />` to
+       * `<Link preload={intentPreload()} />` and `defaultPreload: 'viewport'`
+       * to `defaultPreload: viewportPreload()`. The app then ships only the
+       * strategies it uses, and Links don't load them on demand. React only.
+       * @experimental
+       * @default false
+       */
+      compilePreloadStrings: z.boolean().optional(),
+    })
+    .optional(),
 })
 
 export const getConfig = (inlineConfig: Partial<Config>, root: string) => {
   const config = getGeneratorConfig(inlineConfig, root)
 
-  return configSchema.parse({ ...inlineConfig, ...config })
+  // The generator's own schema drops the plugin's experimental options
+  return configSchema.parse({
+    ...inlineConfig,
+    ...config,
+    experimental: { ...config.experimental, ...inlineConfig.experimental },
+  })
 }
 
 export type Config = z.infer<typeof configSchema>

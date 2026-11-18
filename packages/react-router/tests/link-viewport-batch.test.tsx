@@ -1,6 +1,15 @@
 import * as React from 'react'
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { loadPreloadStrategy } from '@tanstack/router-core'
 import {
   Link,
   RouterProvider,
@@ -19,6 +28,12 @@ import type {
   PreloadLink,
   PreloadOption,
 } from '../src'
+
+// String modes load their strategies on demand: load them up front, so
+// events fired right after a render reach them.
+beforeAll(async () => {
+  await loadPreloadStrategy('intent')
+})
 
 // One callback per observed element, so tests can scroll links independently.
 let observed: Map<Element, IntersectionObserverCallback>
@@ -452,7 +467,7 @@ describe('strategies attach only the listeners they need', () => {
   test('intentPreload(): hover, focus, touch and click', async () => {
     const { added, removed } = await linkListeners(intentPreload())
     const perLink = [
-      'mouseenter',
+      'mouseover',
       'focusin',
       'mouseleave',
       'focusout',
@@ -463,12 +478,8 @@ describe('strategies attach only the listeners they need', () => {
     expect(removed).toEqual(added)
   })
 
-  test.each([
-    ['renderPreload()', renderPreload()],
-    ["'intent'", 'intent'],
-    ["'viewport'", 'viewport'],
-  ] as const)('%s: none', async (_, preload) => {
-    const { added, removed } = await linkListeners(preload)
+  test('renderPreload(): none', async () => {
+    const { added, removed } = await linkListeners(renderPreload())
     expect(added).toEqual([])
     expect(removed).toEqual([])
   })
