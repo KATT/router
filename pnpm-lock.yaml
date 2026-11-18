@@ -11398,6 +11398,79 @@ importers:
         specifier: ^8.3.4
         version: 8.3.4(@types/node@25.0.9)(esbuild@0.28.1)(jiti@2.7.0)(sass-embedded@1.105.1)(sass@1.97.2)(terser@5.51.2)(tsx@4.20.3)(yaml@2.9.0)
 
+  examples/react/start-trpc-viewport-batch:
+    dependencies:
+      '@radix-ui/react-toggle-group':
+        specifier: ^1.1.3
+        version: 1.1.3(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)
+      '@tanstack/react-query':
+        specifier: ^5.102.0
+        version: 5.102.0(react@19.2.9)
+      '@tanstack/react-router':
+        specifier: workspace:*
+        version: link:../../../packages/react-router
+      '@tanstack/react-router-ssr-query':
+        specifier: workspace:*
+        version: link:../../../packages/react-router-ssr-query
+      '@tanstack/react-start':
+        specifier: workspace:*
+        version: link:../../../packages/react-start
+      '@trpc/client':
+        specifier: ^11.28.3
+        version: 11.28.3(@trpc/server@11.28.3(@types/express@5.0.6)(@types/ws@8.5.14)(@typescript/typescript6@6.0.2)(fastify@5.7.1)(next@16.3.4(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.0.9)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(sass@1.105.1)))(@typescript/typescript6@6.0.2)
+      '@trpc/server':
+        specifier: ^11.28.3
+        version: 11.28.3(@types/express@5.0.6)(@types/ws@8.5.14)(@typescript/typescript6@6.0.2)(fastify@5.7.1)(next@16.3.4(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.0.9)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(sass@1.105.1))
+      '@trpc/tanstack-react-query':
+        specifier: ^11.28.3
+        version: 11.28.3(@tanstack/react-query@5.102.0(react@19.2.9))(@trpc/client@11.28.3(@trpc/server@11.28.3(@types/express@5.0.6)(@types/ws@8.5.14)(@typescript/typescript6@6.0.2)(fastify@5.7.1)(next@16.3.4(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.0.9)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(sass@1.105.1)))(@typescript/typescript6@6.0.2))(@trpc/server@11.28.3(@types/express@5.0.6)(@types/ws@8.5.14)(@typescript/typescript6@6.0.2)(fastify@5.7.1)(next@16.3.4(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.0.9)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(sass@1.105.1)))(@typescript/typescript6@6.0.2)(react@19.2.9)
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      react:
+        specifier: ~19.2.9
+        version: 19.2.9
+      react-dom:
+        specifier: ~19.2.9
+        version: 19.2.9(react@19.2.9)
+      tailwind-merge:
+        specifier: ^3.6.0
+        version: 3.6.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.6.6
+    devDependencies:
+      '@tailwindcss/vite':
+        specifier: ^4.2.2
+        version: 4.2.2(vite@8.3.4(@types/node@25.0.9)(esbuild@0.28.1)(jiti@2.7.0)(sass-embedded@1.105.1)(sass@1.105.1)(terser@5.51.2)(tsx@4.20.3)(yaml@2.9.0))
+      '@types/node':
+        specifier: 25.0.9
+        version: 25.0.9
+      '@types/react':
+        specifier: ^19.2.8
+        version: 19.2.9
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.9)
+      '@typescript/native':
+        specifier: npm:typescript@^7.0.2
+        version: typescript@7.0.2
+      '@vitejs/plugin-react':
+        specifier: ^6.0.1
+        version: 6.0.1(@rolldown/plugin-babel@0.2.3(@babel/core@7.29.7(supports-color@10.2.2))(rolldown@1.2.13)(vite@8.3.4(@types/node@25.0.9)(esbuild@0.28.1)(jiti@2.7.0)(sass-embedded@1.105.1)(sass@1.105.1)(terser@5.51.2)(tsx@4.20.3)(yaml@2.9.0)))(babel-plugin-react-compiler@1.0.0)(vite@8.3.4(@types/node@25.0.9)(esbuild@0.28.1)(jiti@2.7.0)(sass-embedded@1.105.1)(sass@1.105.1)(terser@5.51.2)(tsx@4.20.3)(yaml@2.9.0))
+      nitro:
+        specifier: ^3.0.260903-beta
+        version: 3.0.260903-beta
+      tailwindcss:
+        specifier: ^4.2.2
+        version: 4.3.1
+      typescript:
+        specifier: npm:@typescript/typescript6@^6.0.2
+        version: '@typescript/typescript6@6.0.2'
+      vite:
+        specifier: ^8.3.4
+        version: 8.3.4(@types/node@25.0.9)(esbuild@0.28.1)(jiti@2.7.0)(sass-embedded@1.105.1)(sass@1.105.1)(terser@5.51.2)(tsx@4.20.3)(yaml@2.9.0)
+
   examples/react/start-workos:
     dependencies:
       '@radix-ui/themes':
@@ -22020,15 +22093,51 @@ packages:
       '@vue/compiler-sfc':
         optional: true
 
+  '@trpc/client@11.28.3':
+    resolution: {integrity: sha512-NnMXBOCVzPMELdQH/X26MhI4u9g83nxWy3apc7UX1beevUk6rEYqfOboqCb/rVoVPu3CBVaPb8PB7AG51oEKvQ==}
+    peerDependencies:
+      '@trpc/server': 11.28.3
+      typescript: '>=5.7.2'
+
   '@trpc/client@11.4.3':
     resolution: {integrity: sha512-i2suttUCfColktXT8bqex5kHW5jpT15nwUh0hGSDiW1keN621kSUQKcLJ095blqQAUgB+lsmgSqSMmB4L9shQQ==}
     peerDependencies:
       '@trpc/server': 11.4.3
       typescript: '>=5.7.2'
 
+  '@trpc/server@11.28.3':
+    resolution: {integrity: sha512-os9o1enNvbcSSyn9agxsYPkIE8kWK7IJbkD5/ySCCApsdM58cFZ5IF410G9Q0k3RwKfsM2Q/GbGp1rbgCWLp5Q==}
+    peerDependencies:
+      '@types/aws-lambda': '*'
+      '@types/express': '*'
+      '@types/ws': '*'
+      fastify: '*'
+      next: '*'
+      typescript: '>=5.7.2'
+    peerDependenciesMeta:
+      '@types/aws-lambda':
+        optional: true
+      '@types/express':
+        optional: true
+      '@types/ws':
+        optional: true
+      fastify:
+        optional: true
+      next:
+        optional: true
+
   '@trpc/server@11.4.3':
     resolution: {integrity: sha512-wnWq3wiLlMOlYkaIZz+qbuYA5udPTLS4GVVRyFkr6aT83xpdCHyVtURT+u4hSoIrOXQM9OPCNXSXsAujWZDdaw==}
     peerDependencies:
+      typescript: '>=5.7.2'
+
+  '@trpc/tanstack-react-query@11.28.3':
+    resolution: {integrity: sha512-cc/iHPIchVWANTi1i+fyKm2cutOsKFERZFIFGM2C5woqA1Cf1G03OBwGGwj1uYy1Qeshp1M/A4HEYiaG/gj4vw==}
+    peerDependencies:
+      '@tanstack/react-query': ^5.102.0
+      '@trpc/client': 11.28.3
+      '@trpc/server': 11.28.3
+      react: ~19.2.9
       typescript: '>=5.7.2'
 
   '@trpc/tanstack-react-query@11.4.3':
@@ -35729,13 +35838,35 @@ snapshots:
     optionalDependencies:
       '@vue/compiler-sfc': 3.5.25
 
+  '@trpc/client@11.28.3(@trpc/server@11.28.3(@types/express@5.0.6)(@types/ws@8.5.14)(@typescript/typescript6@6.0.2)(fastify@5.7.1)(next@16.3.4(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.0.9)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(sass@1.105.1)))(@typescript/typescript6@6.0.2)':
+    dependencies:
+      '@trpc/server': 11.28.3(@types/express@5.0.6)(@types/ws@8.5.14)(@typescript/typescript6@6.0.2)(fastify@5.7.1)(next@16.3.4(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.0.9)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(sass@1.105.1))
+      typescript: '@typescript/typescript6@6.0.2'
+
   '@trpc/client@11.4.3(@trpc/server@11.4.3(@typescript/typescript6@6.0.2))(@typescript/typescript6@6.0.2)':
     dependencies:
       '@trpc/server': 11.4.3(@typescript/typescript6@6.0.2)
       typescript: '@typescript/typescript6@6.0.2'
 
+  '@trpc/server@11.28.3(@types/express@5.0.6)(@types/ws@8.5.14)(@typescript/typescript6@6.0.2)(fastify@5.7.1)(next@16.3.4(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.0.9)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(sass@1.105.1))':
+    dependencies:
+      typescript: '@typescript/typescript6@6.0.2'
+    optionalDependencies:
+      '@types/express': 5.0.6
+      '@types/ws': 8.5.14
+      fastify: 5.7.1
+      next: 16.3.4(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.0.9)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(sass@1.105.1)
+
   '@trpc/server@11.4.3(@typescript/typescript6@6.0.2)':
     dependencies:
+      typescript: '@typescript/typescript6@6.0.2'
+
+  '@trpc/tanstack-react-query@11.28.3(@tanstack/react-query@5.102.0(react@19.2.9))(@trpc/client@11.28.3(@trpc/server@11.28.3(@types/express@5.0.6)(@types/ws@8.5.14)(@typescript/typescript6@6.0.2)(fastify@5.7.1)(next@16.3.4(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.0.9)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(sass@1.105.1)))(@typescript/typescript6@6.0.2))(@trpc/server@11.28.3(@types/express@5.0.6)(@types/ws@8.5.14)(@typescript/typescript6@6.0.2)(fastify@5.7.1)(next@16.3.4(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.0.9)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(sass@1.105.1)))(@typescript/typescript6@6.0.2)(react@19.2.9)':
+    dependencies:
+      '@tanstack/react-query': 5.102.0(react@19.2.9)
+      '@trpc/client': 11.28.3(@trpc/server@11.28.3(@types/express@5.0.6)(@types/ws@8.5.14)(@typescript/typescript6@6.0.2)(fastify@5.7.1)(next@16.3.4(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.0.9)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(sass@1.105.1)))(@typescript/typescript6@6.0.2)
+      '@trpc/server': 11.28.3(@types/express@5.0.6)(@types/ws@8.5.14)(@typescript/typescript6@6.0.2)(fastify@5.7.1)(next@16.3.4(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.0.9)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(sass@1.105.1))
+      react: 19.2.9
       typescript: '@typescript/typescript6@6.0.2'
 
   '@trpc/tanstack-react-query@11.4.3(@tanstack/react-query@5.102.0(react@19.2.9))(@trpc/client@11.4.3(@trpc/server@11.4.3(@typescript/typescript6@6.0.2))(@typescript/typescript6@6.0.2))(@trpc/server@11.4.3(@typescript/typescript6@6.0.2))(@typescript/typescript6@6.0.2)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)':
