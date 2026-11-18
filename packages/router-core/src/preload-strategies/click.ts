@@ -42,7 +42,7 @@ export function delayed(
   preload: () => void,
   delay: number | undefined,
 ) {
-  const wait = delay ?? router.options.defaultPreloadDelay ?? 0
+  const wait = delay ?? router.options.defaultPreloadDelay
   let timer: ReturnType<typeof setTimeout> | undefined
   const cancel = () => {
     clearTimeout(timer)
