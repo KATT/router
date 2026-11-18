@@ -61,6 +61,12 @@ The `RouterOptions` type accepts an object with the following properties and met
 - Defaults to `50`
 - The delay in milliseconds before intent focus/hover and viewport preloading. Touch intent preloads immediately.
 
+### `defaultPreloadViewportScheduler` property
+
+- Type: `(link: object, preload?: () => void, delay?: number) => void`
+- Optional
+- Decides when viewport preloads run. Without it, each link runs its own `preloadDelay` timer. Pass `batchViewportPreloads()` to share one timer that restarts on every intersection change, then preloads every link still in view in the same tick. See [Batching Viewport Preloads](../../guide/preloading.md#batching-viewport-preloads).
+
 ### `defaultComponent` property
 
 - Type: `RouteComponent`

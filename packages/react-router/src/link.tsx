@@ -365,6 +365,15 @@ export function useLinkProps<
     (e?: React.MouseEvent | React.FocusEvent | IntersectionObserverEntry) => {
       const isIntersecting = (e as IntersectionObserverEntry | undefined)
         ?.isIntersecting
+      const scheduler = router.options.defaultPreloadViewportScheduler
+      if (isIntersecting !== undefined && scheduler) {
+        scheduler(
+          innerRef,
+          isIntersecting ? () => preloadLink(router, dest) : undefined,
+          preloadDelay,
+        )
+        return
+      }
       if (!(isIntersecting ?? preload === 'intent')) {
         if (isIntersecting === false) {
           cancelPreload(innerRef)
@@ -417,7 +426,10 @@ export function useLinkProps<
     }
     return () => {
       active = false
-      observer?.disconnect()
+      if (observer) {
+        observer.disconnect()
+        router.options.defaultPreloadViewportScheduler?.(innerRef)
+      }
       cancelPreload(innerRef)
     }
   }, [router, dest, preload, enqueuePreload, innerRef])

@@ -57,6 +57,7 @@ import {
 } from './rewrite'
 import { createRouterStores } from './stores'
 import type { SieveCache } from './sieve-cache'
+import type { ViewportPreloadScheduler } from './viewport-preload'
 import type { RouteInterpolation } from './path'
 import type {
   ProcessRouteTreeResult,
@@ -240,6 +241,16 @@ export interface RouterOptions<
    * @link [Guide](https://tanstack.com/router/latest/docs/framework/react/guide/preloading#preload-delay)
    */
   defaultPreloadDelay?: number
+  /**
+   * Decides when viewport preloads run. Without it, each link runs its own
+   * `preloadDelay` timer. Pass `batchViewportPreloads()` to share one timer
+   * that restarts on every intersection change, then preloads all links still
+   * in view in the same tick.
+   *
+   * @default undefined
+   * @link [Guide](https://tanstack.com/router/latest/docs/framework/react/guide/preloading#batching-viewport-preloads)
+   */
+  defaultPreloadViewportScheduler?: ViewportPreloadScheduler
   /**
    * The default `preloadIntentProximity` a route should use if no preloadIntentProximity is provided.
    *
