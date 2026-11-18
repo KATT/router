@@ -691,6 +691,8 @@ export interface LinkOptionsProps {
   /**
    * When the preload strategy is set to `intent`, this controls the proximity of the link to the cursor before it is preloaded.
    * If the user exits this proximity before this delay, the preload will be cancelled.
+   *
+   * @deprecated Not implemented: no Link reads it, so it has no effect.
    */
   preloadIntentProximity?: number
 }

@@ -243,6 +243,7 @@ export interface RouterOptions<
   /**
    * The default `preloadIntentProximity` a route should use if no preloadIntentProximity is provided.
    *
+   * @deprecated Not implemented: no Link reads it, so it has no effect.
    * @default 0
    * @link [API Docs](https://tanstack.com/router/latest/docs/framework/react/api/router/RouterOptionsType#defaultpreloadintentproximity-property)
    * @link [Guide](https://tanstack.com/router/latest/docs/framework/react/guide/preloading#preload-intent-proximity)
