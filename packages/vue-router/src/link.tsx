@@ -232,7 +232,9 @@ function useLinkPropsImpl(
       !isExternal() &&
       !options.reloadDocument &&
       !options.disabled &&
-      (options.preload ?? router.options.defaultPreload)
+      ((mode) => (mode === 'viewport-batch' ? 'viewport' : mode))(
+        options.preload ?? router.options.defaultPreload,
+      )
     )
   })
   const preload = () => {

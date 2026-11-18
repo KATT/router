@@ -673,9 +673,11 @@ export interface LinkOptionsProps {
    * - `false` - No preloading
    * - `'intent'` - Preload the linked route when the user focuses, hovers over, or touches the link
    * - `'viewport'` - Preload the linked route when it enters the viewport
+   * - `'viewport-batch'` - Like `'viewport'`, but all such links share one
+   *   timer that restarts on every intersection change, then preload together
    * - `'render'` - Preload the linked route as soon as it renders
    */
-  preload?: false | 'intent' | 'viewport' | 'render'
+  preload?: false | 'intent' | 'viewport' | 'viewport-batch' | 'render'
   /**
    * Delays focus, hover, and viewport preloading by this many milliseconds.
    * Touch intent preloads immediately. If focus or hover ends, or the link

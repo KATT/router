@@ -226,11 +226,15 @@ export interface RouterOptions<
    *
    * If `'viewport'`, routes will be preloaded by default when they are within the viewport.
    *
+   * If `'viewport-batch'`, links preload like `'viewport'`, but share one timer
+   * per router that restarts on every intersection change. When it fires, all
+   * links still in view preload in the same tick.
+   *
    * @default false
    * @link [API Docs](https://tanstack.com/router/latest/docs/framework/react/api/router/RouterOptionsType#defaultpreload-property)
    * @link [Guide](https://tanstack.com/router/latest/docs/framework/react/guide/preloading)
    */
-  defaultPreload?: false | 'intent' | 'viewport' | 'render'
+  defaultPreload?: false | 'intent' | 'viewport' | 'viewport-batch' | 'render'
   /**
    * The delay in milliseconds before intent focus/hover and viewport preloading.
    * Touch intent preloads immediately.

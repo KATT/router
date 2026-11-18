@@ -7,6 +7,7 @@ import {
   getUrlScheme,
   isDangerousProtocol,
   preloadWarning,
+  queueViewportPreload,
   removeTrailingSlash,
 } from '@tanstack/router-core'
 import { isServer } from '@tanstack/router-core/isServer'
@@ -365,6 +366,19 @@ export function useLinkProps<
     (e?: React.MouseEvent | React.FocusEvent | IntersectionObserverEntry) => {
       const isIntersecting = (e as IntersectionObserverEntry | undefined)
         ?.isIntersecting
+      if (
+        isIntersecting !== undefined &&
+        preloadDelay &&
+        preload === 'viewport-batch'
+      ) {
+        queueViewportPreload(
+          router,
+          innerRef,
+          isIntersecting ? () => preloadLink(router, dest) : undefined,
+          preloadDelay,
+        )
+        return
+      }
       if (!(isIntersecting ?? preload === 'intent')) {
         if (isIntersecting === false) {
           cancelPreload(innerRef)
@@ -400,7 +414,7 @@ export function useLinkProps<
     let active = true
     let observer: IntersectionObserver | undefined
     if (
-      preload === 'viewport' &&
+      (preload === 'viewport' || preload === 'viewport-batch') &&
       innerRef.current &&
       typeof IntersectionObserver === 'function'
     ) {
@@ -417,7 +431,10 @@ export function useLinkProps<
     }
     return () => {
       active = false
-      observer?.disconnect()
+      if (observer) {
+        observer.disconnect()
+        queueViewportPreload(router, innerRef)
+      }
       cancelPreload(innerRef)
     }
   }, [router, dest, preload, enqueuePreload, innerRef])

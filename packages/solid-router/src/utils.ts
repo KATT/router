@@ -15,7 +15,7 @@ export function useIntersectionObserver<T extends Element>(
     const r = ref()
     const mode = preload()
     if (
-      mode === 'viewport' &&
+      (mode === 'viewport' || mode === 'viewport-batch') &&
       r &&
       typeof IntersectionObserver === 'function'
     ) {

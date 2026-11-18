@@ -12,6 +12,8 @@ Preloading in TanStack Router is a way to load a route before the user actually 
 - Viewport Visibility
   - Preloading by **"viewport**" works by using the Intersection Observer API to preload the dependencies for the destination route when the `<Link>` component is in the viewport.
   - This strategy is useful for preloading routes that are below the fold or off-screen.
+- Batched Viewport Visibility
+  - Preloading by **"viewport-batch"** works like "viewport", but links share one timer that waits for scrolling to settle, then preloads every link still in view in the same tick. See [Batching Viewport Preloads](#batching-viewport-preloads).
 - Render
   - Preloading by **"render"** works by preloading the dependencies for the destination route as soon as the `<Link>` component is rendered in the DOM.
   - This strategy is useful for preloading routes that are always needed.
@@ -93,6 +95,24 @@ const router = createRouter({
 <!-- ::end:framework -->
 
 You can also set the `preloadDelay` prop on individual `<Link>` components to override the default behavior on a per-link basis.
+
+### Batching Viewport Preloads
+
+With `'viewport'`, each link has its own timer, so links that scroll into view at different times preload at different times. With `'viewport-batch'`, links share one timer per router instead:
+
+```tsx
+const router = createRouter({
+  // ...
+  defaultPreload: 'viewport-batch',
+  defaultPreloadDelay: 100,
+})
+```
+
+- A link that enters the viewport is queued. A link that leaves before the flush is dropped.
+- Every time a link enters or leaves the viewport, the timer restarts, so nothing preloads while the user keeps scrolling.
+- When the timer fires, every queued link preloads in the same tick.
+
+This helps data layers that batch requests per tick, such as tRPC's batch links or DataLoader, send one request per screenful instead of one per link. A link that comes back into view is queued again, and the router's usual staleness rules decide whether its loaders run. Hover, focus, and touch preloading are not batched.
 
 ## Built-in Preloading, Freshness, and Retention
 

@@ -9,7 +9,7 @@ The `LinkOptions` type extends the [`NavigateOptions`](./NavigateOptionsType.md)
 type LinkOptions = NavigateOptions & {
   target?: HTMLAnchorElement['target']
   activeOptions?: ActiveOptions
-  preload?: false | 'intent' | 'viewport' | 'render'
+  preload?: false | 'intent' | 'viewport' | 'viewport-batch' | 'render'
   preloadDelay?: number
   disabled?: boolean
 }
@@ -33,7 +33,7 @@ The `LinkOptions` object accepts/contains the following properties:
 
 ### `preload`
 
-- Type: `false | 'intent' | 'viewport' | 'render'`
+- Type: `false | 'intent' | 'viewport' | 'viewport-batch' | 'render'`
 - Optional
 - If set, the link's preloading strategy will be set to this value.
 - See the [Preloading guide](../../guide/preloading.md) for more information.
