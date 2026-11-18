@@ -99,6 +99,35 @@ export const Route = createFileRoute('/')({
     },
     timeout,
   )
+
+  test(
+    'router.experimental.compilePreloadStrings options reach the rewritten strategies',
+    async () => {
+      const files = appFiles({
+        'src/routes/index.tsx': `import { Link, createFileRoute } from '@tanstack/react-router'
+export const Route = createFileRoute('/')({
+  component: () => <Link to="/" preload="viewport">MARK_LINK</Link>,
+})
+`,
+      })
+      const build = await buildStartApp(await createStartApp(files), bundler, {
+        router: {
+          experimental: {
+            compilePreloadStrings: {
+              viewport: { rootMargin: 'MARK_MARGIN', delay: 100 },
+            },
+          },
+        },
+      })
+      expect(build.client).toContain('MARK_LINK')
+      expect(build.client).not.toMatch(/preload:\s*["'`]viewport["'`]/)
+      // The options are written into the client build as they are
+      expect(build.client).toMatch(
+        /\{\s*delay:\s*100,\s*rootMargin:\s*["'`]MARK_MARGIN["'`]\s*\}/,
+      )
+    },
+    timeout,
+  )
 })
 
 describe('vite build', () => {
