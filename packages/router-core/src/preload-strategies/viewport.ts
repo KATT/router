@@ -1,5 +1,5 @@
 import { memoByOptions } from './memo'
-import type { ClickRef } from './click'
+import { delayed } from './click'
 import type { AnyRouter } from '../router'
 import type { PreloadRef, PreloadStrategy } from './types'
 
@@ -50,24 +50,12 @@ export function viewport(
   if (typeof IntersectionObserver !== 'function') {
     return
   }
-  // The link's own delay, else the strategy's, else the router's. Each
-  // chunk has its own copy: a module the two shared would be a chunk of its
-  // own that each also loads.
-  const wait = delay ?? options.delay ?? router.options.defaultPreloadDelay
-  // Never 0 while pending: browsers number timers from 1
-  let timer: ReturnType<typeof setTimeout> | 0 = 0
-  const cancel = () => {
-    clearTimeout(timer)
-    timer = 0
-  }
-  // Without a delay, preloads at once
-  const start = () =>
-    wait
-      ? (timer ||= setTimeout(() => {
-          timer = 0
-          preload()
-        }, wait))
-      : preload()
+  // The link's own delay, else the strategy's, else the router's
+  const [start, cancel] = delayed(
+    ref,
+    preload,
+    delay ?? options.delay ?? router.options.defaultPreloadDelay,
+  )
   let active = true
   const observer = new IntersectionObserver(
     (entries) => {
@@ -84,7 +72,6 @@ export function viewport(
     { rootMargin: options.rootMargin ?? '100px' },
   )
   observer.observe(element)
-  ;(ref as ClickRef).c = cancel
   return () => {
     active = false
     observer.disconnect()

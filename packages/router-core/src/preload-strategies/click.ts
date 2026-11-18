@@ -14,3 +14,30 @@ export type ClickRef = { c?: () => void }
 export function linkNavigatingClick(ref: object) {
   ;(ref as ClickRef).c?.()
 }
+
+/**
+ * A link's preload timer: `start` keeps a pending timer, or preloads at once
+ * without a delay, and `cancel` drops it. A click the Link navigates on
+ * cancels it.
+ */
+export function delayed(
+  ref: object,
+  preload: () => void,
+  wait: number | undefined,
+) {
+  // Never 0 while pending: browsers number timers from 1
+  let timer: ReturnType<typeof setTimeout> | 0 = 0
+  const cancel = () => {
+    clearTimeout(timer)
+    timer = 0
+  }
+  const start = () =>
+    wait
+      ? (timer ||= setTimeout(() => {
+          timer = 0
+          preload()
+        }, wait))
+      : preload()
+  ;(ref as ClickRef).c = cancel
+  return [start, cancel] as const
+}

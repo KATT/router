@@ -1,5 +1,5 @@
 import { memoByOptions } from './memo'
-import type { ClickRef } from './click'
+import { delayed } from './click'
 import type { AnyRouter } from '../router'
 import type { PreloadRef, PreloadStrategy } from './types'
 
@@ -43,24 +43,12 @@ export function intent(
   options: IntentPreloadOptions = {},
 ): ReturnType<PreloadStrategy> {
   const element = ref.current
-  // The link's own delay, else the strategy's, else the router's. Each
-  // chunk has its own copy: a module the two shared would be a chunk of its
-  // own that each also loads.
-  const wait = delay ?? options.delay ?? router.options.defaultPreloadDelay
-  // Never 0 while pending: browsers number timers from 1
-  let timer: ReturnType<typeof setTimeout> | 0 = 0
-  const cancel = () => {
-    clearTimeout(timer)
-    timer = 0
-  }
-  // Without a delay, preloads at once
-  const start = () =>
-    wait
-      ? (timer ||= setTimeout(() => {
-          timer = 0
-          preload()
-        }, wait))
-      : preload()
+  // The link's own delay, else the strategy's, else the router's
+  const [start, cancel] = delayed(
+    ref,
+    preload,
+    delay ?? options.delay ?? router.options.defaultPreloadDelay,
+  )
   // Like React's `onMouseEnter`: moving or focusing between the link's own
   // children isn't entering or leaving it
   const within = (event: Event) =>
@@ -75,7 +63,6 @@ export function intent(
   for (const type in listeners) {
     element.addEventListener(type, listeners[type]!, { passive: true })
   }
-  ;(ref as ClickRef).c = cancel
   // Focused before the listeners, eg. `autoFocus` or a parent's layout effect
   if (element.contains(document.activeElement)) {
     start()
