@@ -1,12 +1,13 @@
 import type { PreloadStrategy } from './types'
 
-const rendered = /* @__PURE__ */ new WeakSet<object>()
+// What `renderPreload()` returns, and `'render'`'s own chunk is. A Link's
+// ref is the same object for its whole life, so it also notes that its Link
+// preloaded (`r`).
+type RenderRef = { r?: true }
 
-// What `renderPreload()` returns, and `'render'`'s own chunk uses. A Link's
-// ref is the same object for its whole life.
 export const render: PreloadStrategy = (_router, ref, preload) => {
-  if (!rendered.has(ref)) {
-    rendered.add(ref)
+  if (!(ref as RenderRef).r) {
+    ;(ref as RenderRef).r = true
     preload()
   }
 }
