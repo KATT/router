@@ -121,7 +121,7 @@ test('disabled, external and reloadDocument Links start no strategy and load not
   expect(preload).not.toHaveBeenCalled()
 })
 
-test('Links that mount while the viewport chunk loads follow option changes, and only mounted ones start; intent needs no chunk', async () => {
+test('Links that mount while the viewport chunk loads follow option changes, and only mounted ones start; intent and render need no chunk', async () => {
   const add = vi.spyOn(Element.prototype, 'addEventListener')
   const { wrap, preload } = setup()
   const preloaded = () =>
@@ -158,6 +158,9 @@ test('Links that mount while the viewport chunk loads follow option changes, and
             strict
           </Link>
         </React.StrictMode>
+        <Link to="/render" preload="render">
+          render
+        </Link>
         <Changing id="toIntent" initial={{ preload: 'viewport' }} />
         <Changing id="toFunction" initial={{ preload: 'viewport' }} />
         <Changing id="toFalse" initial={{ preload: 'viewport' }} />
@@ -171,11 +174,12 @@ test('Links that mount while the viewport chunk loads follow option changes, and
   )
   unmounted.unmount()
 
-  // 'intent' runs through the Link's own event props: it has no chunk, and
-  // adds no listeners
+  // 'render' runs at once, and 'intent' through the Link's own event props:
+  // neither has a chunk, and intent adds no listeners
+  expect(preloaded()).toEqual(['/render'])
   const strict = screen.getByRole('link', { name: 'strict' })
   fireEvent.mouseEnter(strict)
-  expect(preloaded()).toEqual(['/strict'])
+  expect(preloaded()).toEqual(['/render', '/strict'])
   expect(add.mock.contexts.filter((element) => element === strict)).toEqual([])
   // Nothing observes while the viewport chunk loads
   expect(observed.size).toBe(0)
@@ -192,7 +196,7 @@ test('Links that mount while the viewport chunk loads follow option changes, and
   expect(strategy).toHaveBeenCalledTimes(1)
   // viewport -> intent: hover preloads at once
   fireEvent.mouseEnter(screen.getByRole('link', { name: 'toIntent' }))
-  expect(preloaded()).toEqual(['/strict', '/toIntent'])
+  expect(preloaded()).toEqual(['/render', '/strict', '/toIntent'])
 
   await loadChunk()
   // Only the mounted Links that still use 'viewport' observe
@@ -214,20 +218,20 @@ test('Links that mount while the viewport chunk loads follow option changes, and
     })
   // Its latest destination
   intersect(toChanged)
-  expect(preloaded()).toHaveLength(3)
-  expect(preloaded()[2]).toBe('/changed')
+  expect(preloaded()).toHaveLength(4)
+  expect(preloaded()[3]).toBe('/changed')
 
   // preloadDelay changed: the new delay counts
   vi.useFakeTimers()
   intersect(delayChanged)
-  expect(preloaded()).toHaveLength(3)
-  await vi.advanceTimersByTimeAsync(30)
   expect(preloaded()).toHaveLength(4)
-  expect(preloaded()[3]).toBe('/delayChanged')
+  await vi.advanceTimersByTimeAsync(30)
+  expect(preloaded()).toHaveLength(5)
+  expect(preloaded()[4]).toBe('/delayChanged')
 
   // string -> false: nothing
   fireEvent.mouseEnter(screen.getByRole('link', { name: 'toFalse' }))
-  expect(preloaded()).toHaveLength(4)
+  expect(preloaded()).toHaveLength(5)
 })
 
 test('hydrating a string-mode Link matches the server markup', async () => {

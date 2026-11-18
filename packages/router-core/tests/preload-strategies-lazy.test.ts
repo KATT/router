@@ -1,29 +1,44 @@
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { loadPreloadStrings, preloadString } from '../src'
 import type { AnyRouter } from '../src'
 
-// The `'render'` chunk fails to load once, then loads
+// The `'viewport'` chunk fails to load once, then loads; it counts its loads
 const chunk = vi.hoisted(() => ({ failures: 1, imports: 0 }))
-vi.mock('../src/preload-strategies/strings/render', async (importOriginal) => {
-  chunk.imports++
-  if (chunk.failures > 0) {
-    chunk.failures--
-    throw new Error('Failed to fetch dynamically imported module')
-  }
-  return importOriginal()
-})
-// The other chunk counts its loads
-const others = vi.hoisted(() => ({ viewport: 0 }))
-vi.mock('../src/preload-strategies/strings/viewport', (importOriginal) => {
-  others.viewport++
-  return importOriginal()
-})
+vi.mock(
+  '../src/preload-strategies/strings/viewport',
+  async (importOriginal) => {
+    chunk.imports++
+    if (chunk.failures > 0) {
+      chunk.failures--
+      throw new Error('Failed to fetch dynamically imported module')
+    }
+    return importOriginal()
+  },
+)
 
 const router = { options: {} } as AnyRouter
 const unhandled = vi.fn()
 process.on('unhandledRejection', unhandled)
 
+// Every observed link is in view at once
+beforeEach(() => {
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      constructor(private cb: IntersectionObserverCallback) {}
+      observe(target: Element) {
+        this.cb(
+          [{ isIntersecting: true, target } as IntersectionObserverEntry],
+          this as unknown as IntersectionObserver,
+        )
+      }
+      disconnect() {}
+    },
+  )
+})
+
 afterEach(() => {
+  vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
 
@@ -39,16 +54,24 @@ const mountLink = (mode: string) => {
   return { preload, stop }
 }
 
-// Waits for a string's pending load, after the Links waiting on it: a load
-// already pending isn't started again
-const settle = (mode: 'intent' | 'viewport' | 'render') =>
-  loadPreloadStrings(mode).catch(() => {})
+// Waits for the pending load, after the Links waiting on it: a load already
+// pending isn't started again
+const settle = () => loadPreloadStrings('viewport').catch(() => {})
 
-test('a failed load warns once, and the next string-mode Link loads again', async () => {
+test('intent and render load nothing', async () => {
+  // Starts at once
+  expect(mountLink('render').preload).toHaveBeenCalledTimes(1)
+  mountLink('intent').stop?.()
+  await loadPreloadStrings('intent')
+  await loadPreloadStrings('render')
+  expect(chunk.imports).toBe(0)
+})
+
+test('a failed load warns once, and the next viewport Link loads again', async () => {
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-  const first = mountLink('render')
-  const second = mountLink('render')
-  await settle('render')
+  const first = mountLink('viewport')
+  const second = mountLink('viewport')
+  await settle()
 
   expect(chunk.imports).toBe(1)
   expect(warn).toHaveBeenCalledTimes(1)
@@ -57,34 +80,20 @@ test('a failed load warns once, and the next string-mode Link loads again', asyn
 
   // Many Links mount before the next load: one import, and each one still
   // mounted starts
-  const third = mountLink('render')
-  const fourth = mountLink('render')
-  const gone = mountLink('render')
+  const third = mountLink('viewport')
+  const fourth = mountLink('viewport')
+  const gone = mountLink('viewport')
   gone.stop?.()
-  await settle('render')
+  await settle()
   expect(chunk.imports).toBe(2)
   expect(third.preload).toHaveBeenCalledTimes(1)
   expect(fourth.preload).toHaveBeenCalledTimes(1)
   expect(gone.preload).not.toHaveBeenCalled()
   expect(warn).toHaveBeenCalledTimes(1)
   expect(unhandled).not.toHaveBeenCalled()
-  // Only the string the Links use loaded
-  expect(others).toEqual({ viewport: 0 })
-})
 
-test('each string loads its own chunk, once, when its first Link mounts', async () => {
-  const first = mountLink('viewport')
-  const second = mountLink('viewport')
-  expect(others).toEqual({ viewport: 0 })
-  await settle('viewport')
-  expect(others).toEqual({ viewport: 1 })
-  // A React Link runs `'intent'` itself: it has no chunk
-  mountLink('intent').stop?.()
-  await settle('intent')
-  expect(others).toEqual({ viewport: 1 })
-  first.stop?.()
-  second.stop?.()
+  // Loaded: Links start at once, and nothing loads again
+  expect(mountLink('viewport').preload).toHaveBeenCalledTimes(1)
   await expect(loadPreloadStrings()).resolves.toBeDefined()
-  expect(others).toEqual({ viewport: 1 })
   expect(chunk.imports).toBe(2)
 })

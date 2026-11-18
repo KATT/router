@@ -1,6 +1,6 @@
 import React from 'react'
 import { cleanup, render, waitFor } from '@testing-library/react'
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import {
   Link,
   RouterContextProvider,
@@ -9,12 +9,31 @@ import {
   createRouter,
 } from '../src'
 
-// Links load the strategies for `preload` strings on demand. Each test file
-// gets its own modules, so they are not loaded when this file starts. The
-// tests run in order on purpose: the first one sees the strategies before
-// they load.
+// Links load the strategy for `'viewport'` on demand. Each test file gets
+// its own modules, so it is not loaded when this file starts. The tests run
+// in order on purpose: the first one sees the strategy before it loads.
 
-afterEach(cleanup)
+// Every observed link is in view at once
+beforeEach(() => {
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      constructor(private cb: IntersectionObserverCallback) {}
+      observe(target: Element) {
+        this.cb(
+          [{ isIntersecting: true, target } as IntersectionObserverEntry],
+          this as unknown as IntersectionObserver,
+        )
+      }
+      disconnect() {}
+    },
+  )
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  cleanup()
+})
 
 const setup = () => {
   const router = createRouter({
@@ -25,7 +44,7 @@ const setup = () => {
   const preload = vi.spyOn(router, 'preloadRoute').mockResolvedValue(undefined)
   const link = (
     <RouterContextProvider router={router}>
-      <Link to="/target" preload="render">
+      <Link to="/target" preload="viewport" preloadDelay={0}>
         Target
       </Link>
     </RouterContextProvider>

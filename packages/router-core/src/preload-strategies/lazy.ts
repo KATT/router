@@ -1,19 +1,17 @@
 import { intentPreload } from './intent'
+import { render } from './render'
 import type { PreloadMode, PreloadStrategy } from './types'
 
 // How Links run `'viewport'` and `'render'`. Strings the bundler plugin's
-// `compilePreloadStrings` rewrote never get here; any other string loads its
-// built-in strategy from that strategy's own chunk, so a page loads only the
-// strings its Links use. A React Link runs `'intent'` itself, through its
-// element's event props, so `'intent'` has no chunk.
+// `compilePreloadStrings` rewrote never get here. `'viewport'` loads its
+// strategy from its own chunk, so only pages whose Links use it load it.
+// `'render'`'s strategy is a few bytes, less than loading a chunk takes, so
+// it's here. A React Link runs `'intent'` itself, through its element's event
+// props, so `'intent'` needs neither.
 
-// Each string's strategy once loaded, else its load, from its first Link
-// until the load fails. Other strings have none. No prototype: a string such
-// as `'toString'` is just another unknown one.
-const modes: Record<
-  string,
-  PreloadStrategy | Promise<PreloadStrategy> | undefined
-> = Object.create(null)
+// `'viewport'`'s strategy once loaded, else its load, from its first Link
+// until the load fails
+let viewport: PreloadStrategy | Promise<PreloadStrategy> | undefined
 
 /**
  * A string's strategy once loaded, else its pending load (`undefined` for
@@ -21,28 +19,26 @@ const modes: Record<
  * @internal
  */
 export const loadPreloadString = (mode: string) =>
-  (modes[mode] ??= (
-    mode === 'viewport'
-      ? import('./strings/viewport')
-      : mode === 'render'
-        ? import('./strings/render')
-        : undefined
-  )?.then(
-    (module) => (modes[mode] = module.default),
-    // Once per failed load, however many Links wait on it; the next Link
-    // with the string loads again
-    (error) => {
-      modes[mode] = undefined
-      console.warn(error)
-      throw error
-    },
-  ))
+  mode === 'render'
+    ? render
+    : mode === 'viewport'
+      ? (viewport ??= import('./strings/viewport').then(
+          (module) => (viewport = module.default),
+          // Once per failed load, however many Links wait on it; the next
+          // Link with the string loads again
+          (error) => {
+            viewport = undefined
+            console.warn(error)
+            throw error
+          },
+        ))
+      : undefined
 
 /**
  * Loads the strategy a `preload` string stands for (every string's, without
- * one), once per page. Each is its own chunk, so apps load only those they
- * use; `'intent'` has none. If a load fails, the promise rejects and the next
- * call loads again.
+ * one), once per page. Only `'viewport'`'s is a chunk of its own, so apps
+ * that don't use it don't load it. If a load fails, the promise rejects and
+ * the next call loads again.
  * @experimental
  */
 export function loadPreloadStrings(mode?: PreloadMode): Promise<unknown> {
@@ -54,8 +50,8 @@ export function loadPreloadStrings(mode?: PreloadMode): Promise<unknown> {
 /**
  * The strategy for a `preload` string: `'intent'` is `intentPreload()`,
  * `'viewport'` is `viewportPreload()` and `'render'` is `renderPreload()`.
- * Until it's loaded, the first Link with the string loads it, and a Link that
- * unmounts before that starts nothing. If the load fails, it warns and starts
+ * Until `'viewport'`'s is loaded, the first Link with it loads it, and a Link
+ * that unmounts before that starts nothing. If the load fails, it warns and starts
  * nothing; the next Link with the string that mounts loads again. Other
  * strings are ignored.
  * @experimental

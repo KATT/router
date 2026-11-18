@@ -1,7 +1,7 @@
 import type { PreloadStrategy } from './types'
 
-// What `renderPreload()` returns, and `'render'`'s own chunk is. A Link's
-// ref is the same object for its whole life, so it also notes that its Link
+// What `renderPreload()` returns, and `'render'` stands for. A Link's ref is
+// the same object for its whole life, so it also notes that its Link
 // preloaded (`r`).
 type RenderRef = { r?: true }
 

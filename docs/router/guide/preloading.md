@@ -130,7 +130,7 @@ In React, `preload` and `defaultPreload` also take a strategy, which decides whe
 | `'viewport'` | `viewportPreload({ delay, rootMargin })` |
 | `'render'`   | `renderPreload()`                        |
 
-Links run `'intent'` themselves and load the other strings' strategies on demand. See [How Links Run the Strings](#how-links-run-the-strings).
+Links run `'intent'` themselves and load `'viewport'`'s strategy on demand. See [How Links Run the Strings](#how-links-run-the-strings).
 
 For a delay, a link's own `preloadDelay` wins, then the options passed to the strategy, then `defaultPreloadDelay` (except for `batchedViewportPreload()`, whose shared timer ignores links' own `preloadDelay`). `rootMargin` defaults to `'100px'`.
 
@@ -177,7 +177,8 @@ The router stage is where a strategy reads its options and keeps state its links
 In React, the strings `'intent'`, `'viewport'` and `'render'` are their built-in strategies:
 
 - `'intent'`, and `intentPreload(options)`, run in the Link itself, through the element's `onMouseEnter`, `onFocus`, `onMouseLeave`, `onBlur` and `onTouchStart` props, as before: a `preventDefault()` in your own handler for one of these stops the preload, and a custom link component made with `createLink` only has to pass those props on. Called directly, eg. by your own strategy, `intentPreload()` listens to the element itself.
-- `'viewport'` and `'render'` are each a separate chunk: the first Link with that string that mounts loads it, once per page, and starts its strategy when it's there. A Link that unmounts before then starts nothing. If the chunk fails to load, the Links waiting for it warn once and don't preload, and the next Link with that string that mounts loads it again.
+- `'viewport'` is a separate chunk: the first Link with it that mounts loads it, once per page, and starts its strategy when it's there. A Link that unmounts before then starts nothing. If the chunk fails to load, the Links waiting for it warn once and don't preload, and the next Link with `'viewport'` that mounts loads it again.
+- `'render'` is a few bytes, so it's bundled with the Link and preloads as the Link mounts.
 
 Other values, such as `true` or an unknown string, are ignored, with a warning in development. Strategies other than `'intent'` listen to or observe the element themselves, so a custom link component has to pass its `ref` on to the element for them to work; if it switches to another element, the strategy starts again with the new one. A click still cancels a pending preload only when the Link navigates on it, as before.
 
@@ -216,7 +217,7 @@ const link = <Link to="/posts" preload={intentPreload()} />
 - It only rewrites the router's own options, and only literals of the three strings (`'intent'`, `'intent' as const` and the like): the `preload` prop of `<Link>` and of components `createLink` makes in the same file, `<RouterProvider defaultPreload>`, `defaultPreload` in `createRouter({...})`, and `preload` in `linkOptions({...})` (or an array of them) and `useLinkProps({...})`. These must be imported from `@tanstack/react-router`, by name or as a namespace (`Router.createRouter(...)`).
 - Everything else keeps its strings: other objects, such as a loader's or a server function's data, elements like `<video>`, member and namespaced names like `<motion.video>` or `<Router.Link>`, and your own wrapper components, such as a `MyLink` imported from another file.
 - It looks at your own JavaScript and TypeScript files that import `@tanstack/react-router`, not at `node_modules`, and not at MDX, Vue or HTML files. Files it can't parse are left as they are, for your bundler to report.
-- Strings it can't see as literals, such as `preload={mode}`, strings from a library, or options built at run time, still work as above (`'viewport'` and `'render'` load their strategy on demand). That's why their chunks are always emitted: the build can't prove that no string reaches a Link.
+- Strings it can't see as literals, such as `preload={mode}`, strings from a library, or options built at run time, still work as above (`'viewport'` loads its strategy on demand). That's why the `'viewport'` chunk is always emitted: the build can't prove that no string reaches a Link.
 - It's for React only. Set it in `tanstackRouter()`, `tsr.config.json`, or with TanStack Start, in `tanstackStart({ router: { experimental: { compilePreloadStrings: true } } })`.
 
 Instead of `true`, you can pass options for the strategies the strings are rewritten to. The plugin writes them into the code at build time, so they cost nothing at runtime:
@@ -250,7 +251,7 @@ const link = (
 
 #### Bundle size
 
-Links carry the code for `'intent'`, but not for `'viewport'` and `'render'`, so the JS every visitor downloads up front (the initial JS) is smaller than in versions where Links handled every string themselves. Their chunks are still emitted to your build output, so the total size of all emitted files grows a little, but a visitor only downloads one when its string reaches a Link.
+Links carry the code for `'intent'` and `'render'`, but not for `'viewport'`, so the JS every visitor downloads up front (the initial JS) is smaller than in versions where Links handled every string themselves. The `'viewport'` chunk is still emitted to your build output, so the total size of all emitted files grows a little, but a visitor only downloads it when `'viewport'` reaches a Link.
 
 ## Built-in Preloading, Freshness, and Retention
 
