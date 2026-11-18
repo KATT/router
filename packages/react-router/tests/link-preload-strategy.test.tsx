@@ -101,6 +101,71 @@ const listenerCalls = (
     .filter((_, i) => spy.mock.contexts[i] === element)
     .map(([type]) => type)
 
+describe('intent', () => {
+  test.each([['intent'], [intentPreload()]] as const)(
+    'moving between children of a link starts one preload (%s)',
+    (preloadOption) => {
+      const { preload, mount } = setup()
+      mount(
+        <Link to="/target" preload={preloadOption} preloadDelay={0}>
+          <span>a</span>
+          <span>b</span>
+        </Link>,
+      )
+      const link = screen.getByRole('link')
+      const [a, b] = link.querySelectorAll('span')
+
+      fireEvent.mouseOver(link)
+      fireEvent.mouseOver(b!, { relatedTarget: a })
+      fireEvent.mouseOver(a!, { relatedTarget: b })
+      expect(preload).toHaveBeenCalledTimes(1)
+
+      // Leaving and entering again is a new enter
+      fireEvent.mouseLeave(link)
+      fireEvent.mouseOver(a!, { relatedTarget: document.body })
+      expect(preload).toHaveBeenCalledTimes(2)
+    },
+  )
+
+  test('a link focused before its strategy starts (autoFocus) preloads', () => {
+    const { preload, mount } = setup()
+    // React focuses an `autoFocus` button as it mounts
+    const ButtonLink = createLink(
+      React.forwardRef<HTMLButtonElement, any>(function Button(props, ref) {
+        return <button ref={ref} {...props} />
+      }),
+    )
+    mount(
+      <ButtonLink to="/target" preload="intent" preloadDelay={0} autoFocus>
+        Target
+      </ButtonLink>,
+    )
+    expect(document.activeElement).toBe(screen.getByRole('button'))
+    expect(preload).toHaveBeenCalledTimes(1)
+  })
+
+  test('a link focused by a parent layout effect waits the delay, then preloads', async () => {
+    const { preload, mount } = setup()
+    function App() {
+      const ref = React.useRef<HTMLAnchorElement>(null)
+      React.useLayoutEffect(() => {
+        ref.current!.focus()
+      }, [])
+      return (
+        <Link ref={ref} to="/target" preload="intent" preloadDelay={20}>
+          Target
+        </Link>
+      )
+    }
+    vi.useFakeTimers()
+    mount(<App />)
+    await vi.advanceTimersByTimeAsync(19)
+    expect(preload).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(preload).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('a click cancels a pending preload only when the Link navigates on it', () => {
   type Strategy = 'intent' | 'viewport' | 'batched'
   const strategies: Array<Strategy> = ['intent', 'viewport', 'batched']
@@ -197,3 +262,4 @@ describe('invalid preload values are ignored', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('preload'))
   })
 })
+

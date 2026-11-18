@@ -15,7 +15,9 @@ export interface IntentPreloadOptions {
 
 /**
  * `'intent'`: focus or hover preloads after the delay, and leaving, or a
- * click the Link navigates on, first cancels it. Touch preloads at once.
+ * click the Link navigates on, first cancels it. Touch preloads at once. A
+ * link that already has focus when the strategy starts (eg. `autoFocus`)
+ * counts as focused.
  *
  * The same options (or none) give the same strategy, so calling it inline in
  * render is fine.
@@ -30,20 +32,25 @@ export const intentPreload = /* @__PURE__ */ memoByOptions<
     return
   }
   const [start, cancel] = delayed(router, preload, delay ?? options.delay)
-  const listeners: Record<string, () => void> = {
-    // Like React's `onMouseEnter`, which listens to `mouseover`. It
-    // bubbles from children, but a pending timer is kept.
-    mouseover: start,
-    focusin: start,
+  // Like React's `onMouseEnter`: moving or focusing between the link's own
+  // children isn't entering or leaving it
+  const within = (event: Event) =>
+    element.contains((event as MouseEvent).relatedTarget as Node | null)
+  const listeners: Record<string, (event: Event) => void> = {
+    mouseover: (event) => within(event) || start(),
+    focusin: (event) => within(event) || start(),
     mouseleave: cancel,
-    focusout: cancel,
+    focusout: (event) => within(event) || cancel(),
     touchstart: preload,
   }
   for (const type in listeners) {
     element.addEventListener(type, listeners[type]!, { passive: true })
   }
-  // Before a click the Link navigates on
   const stopClick = onNavigatingClick(ref, cancel)
+  // Focused before the listeners, eg. `autoFocus` or a parent's layout effect
+  if (element.contains(document.activeElement)) {
+    start()
+  }
   return () => {
     for (const type in listeners) {
       element.removeEventListener(type, listeners[type]!)
