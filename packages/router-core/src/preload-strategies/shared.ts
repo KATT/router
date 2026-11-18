@@ -3,47 +3,41 @@ import type {
   LinkPreloader,
   PreloadLink,
   PreloadStrategy,
-  PreloadStrategyOptions,
+  PreloadStrategyFactory,
 } from './types'
 
 /**
  * A link's preload delay: its own `preloadDelay`, else the strategy's
- * `delay`, else the router's `defaultPreloadDelay`.
+ * `delay` (passed, or the router's default for the strategy), else the
+ * router's `defaultPreloadDelay`.
  */
 export const delayOf = (router: AnyRouter, link: PreloadLink, delay?: number) =>
   link.delay ?? delay ?? router.options.defaultPreloadDelay ?? 0
 
 /**
- * Makes a named strategy factory, `factory(options)(router)(link)`.
+ * Makes a strategy factory. Each strategy it makes carries the factory as its
+ * `tag`, so router defaults find it with no name or registration:
+ * `preloadStrategyDefaults: [myPreload({ delay: 100 })]`.
  *
  * - The same options give the same strategy, so one called inline on every
  *   render still gives Links the same strategy: they don't restart it.
- * - It's started once per router, with the router's `defaultPreloadOptions`
- *   for its name under the options it was called with. State its links share
- *   lives there.
- * - What it returns runs for each Link on the client.
+ * - `start` runs once per router and set of options, with the router's
+ *   defaults for this factory under the options the strategy was called
+ *   with. State its links share lives there.
+ * - What `start` returns runs for each Link on the client.
+ * @experimental
  */
-export function createPreloadStrategy<
-  TName extends keyof PreloadStrategyOptions,
->(
-  name: TName,
-  start: (
-    options: PreloadStrategyOptions[TName],
-    router: AnyRouter,
-  ) => LinkPreloader,
-) {
-  const made = new Map<string, PreloadStrategy>()
-  return (options = {} as PreloadStrategyOptions[TName]): PreloadStrategy => {
+export function createPreloadStrategy<TOptions extends object = object>(
+  start: (options: TOptions, router: AnyRouter) => LinkPreloader,
+): PreloadStrategyFactory<TOptions> {
+  const made = new Map<string, PreloadStrategy<TOptions>>()
+  const tag: PreloadStrategyFactory<TOptions> = (options = {} as TOptions) => {
     const key = JSON.stringify(options, Object.keys(options).sort())
     let strategy = made.get(key)
     if (!strategy) {
-      strategy = (router) =>
-        start(
-          { ...router.options.defaultPreloadOptions?.[name], ...options },
-          router,
-        )
-      made.set(key, strategy)
+      made.set(key, (strategy = { tag, options, start }))
     }
     return strategy
   }
+  return tag
 }

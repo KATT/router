@@ -6,6 +6,7 @@ import {
   RouterProvider,
   batchedViewportPreload,
   createMemoryHistory,
+  createPreloadStrategy,
   createRootRoute,
   createRoute,
   createRouter,
@@ -15,8 +16,6 @@ import {
 } from '../src'
 import type {
   BatchedViewportPreloadOptions,
-  DefaultPreloadOptions,
-  PreloadLink,
   PreloadOption,
   PreloadStrategy,
 } from '../src'
@@ -71,9 +70,9 @@ async function setup(
     batch?: boolean | BatchedViewportPreloadOptions
     preload?: PreloadOption
     // Called on every render of every link, as an inline prop would be
-    inlinePreload?: () => PreloadOption
+    inlinePreload?: (id: (typeof LINKS)[number]) => PreloadOption
     linkDelay?: number
-    defaultPreloadOptions?: DefaultPreloadOptions
+    preloadStrategyDefaults?: Array<PreloadStrategy>
   } = {},
 ) {
   // A link's own `preload` wins over the router's default
@@ -94,7 +93,7 @@ async function setup(
               key={id}
               to="/$id"
               params={{ id }}
-              preload={options.inlinePreload?.() ?? linkPreload}
+              preload={options.inlinePreload?.(id) ?? linkPreload}
               preloadDelay={options.linkDelay}
             >
               {id}
@@ -112,7 +111,7 @@ async function setup(
     routeTree: rootRoute.addChildren([indexRoute, postRoute]),
     history: createMemoryHistory(),
     defaultPreloadDelay: 50,
-    defaultPreloadOptions: options.defaultPreloadOptions,
+    preloadStrategyDefaults: options.preloadStrategyDefaults,
     defaultPreload: options.batch
       ? batchedViewportPreload(
           options.batch === true ? undefined : options.batch,
@@ -289,6 +288,9 @@ describe('strategies by import work like their strings', () => {
       viewportPreload({ delay: 2, rootMargin: '1px' }),
     )
     expect(intentPreload({ delay: 1 })).not.toBe(intentPreload({ delay: 2 }))
+    // Each strategy carries the factory that made it as its tag
+    expect(viewportPreload({ delay: 2 }).tag).toBe(viewportPreload)
+    expect(batchedViewportPreload().tag).toBe(batchedViewportPreload)
   })
 
   test('an inline batchedViewportPreload() on each link shares one batch', async () => {
@@ -334,28 +336,50 @@ describe('strategies by import work like their strings', () => {
     expect(second.preloads.map(([id]) => id)).toEqual(['a'])
   })
 
-  test("the router's defaultPreloadOptions apply per strategy name", async () => {
-    // The string mode picks up its name's router-wide options
+  test("a string mode picks up the router's defaults for its built-in", async () => {
     await setup({
       preload: 'viewport',
-      defaultPreloadOptions: { viewport: { rootMargin: '250px' } },
+      preloadStrategyDefaults: [viewportPreload({ rootMargin: '250px' })],
     })
     expect(rootMargins).toEqual(['250px', '250px', '250px'])
+  })
 
-    cleanup()
-    vi.useRealTimers()
-    rootMargins = []
-    // Options passed to the strategy win over the router's
+  test("options passed win over the router's defaults for the strategy", async () => {
     const { preloads, scroll } = await setup({
       inlinePreload: () => batchedViewportPreload({ rootMargin: '10px' }),
-      defaultPreloadOptions: {
-        batchedViewport: { delay: 20, rootMargin: '999px' },
-      },
+      preloadStrategyDefaults: [
+        // Another strategy's defaults don't apply
+        viewportPreload({ delay: 999, rootMargin: '999px' }),
+        batchedViewportPreload({ delay: 20, rootMargin: '999px' }),
+      ],
     })
     expect(rootMargins).toEqual(['10px'])
     scroll('a', true)
-    await vi.advanceTimersByTimeAsync(20)
+    await vi.advanceTimersByTimeAsync(19)
+    expect(preloads).toEqual([])
+    await vi.advanceTimersByTimeAsync(1)
     expect(preloads.map(([id]) => id)).toEqual(['a'])
+  })
+
+  test("inheriting the router's defaults shares the batch with passing them", async () => {
+    const { preloads, scroll } = await setup({
+      inlinePreload: (id) =>
+        id === 'a'
+          ? batchedViewportPreload({ delay: 30 })
+          : batchedViewportPreload(),
+      preloadStrategyDefaults: [batchedViewportPreload({ delay: 30 })],
+    })
+    // One observer for all three links
+    expect(rootMargins).toEqual(['100px'])
+
+    scroll('a', true)
+    await vi.advanceTimersByTimeAsync(10)
+    scroll('b', true)
+    await vi.advanceTimersByTimeAsync(29)
+    expect(preloads).toEqual([])
+    await vi.advanceTimersByTimeAsync(1)
+    expect(preloads.map(([id]) => id)).toEqual(['a', 'b'])
+    expect(new Set(preloads.map(([, at]) => at)).size).toBe(1)
   })
 
   test('viewport strategies take a rootMargin', async () => {
@@ -375,17 +399,33 @@ describe('strategies by import work like their strings', () => {
     expect(preloads.map(([id]) => id)).toEqual(['a'])
   })
 
-  test('a custom strategy decides on its own', async () => {
-    // Hover or focus preloads at once, and leaving doesn't cancel anything
-    const eager: PreloadStrategy = () => (link: PreloadLink) => ({
-      enter: link.preload,
+  test('a user-land strategy takes router defaults like a built-in', async () => {
+    // Hover or focus preloads after `delay`, and leaving doesn't cancel it
+    const started: Array<object> = []
+    const hoverPreload = createPreloadStrategy<{
+      delay?: number
+      onTouch?: boolean
+    }>((options) => {
+      started.push(options)
+      return (link) => ({
+        enter: () => setTimeout(link.preload, options.delay ?? 0),
+        touch: options.onTouch ? link.preload : undefined,
+      })
     })
-    const { preloads, links } = await setup({ preload: eager })
+    const { preloads, links } = await setup({
+      preload: hoverPreload({ onTouch: true }),
+      preloadStrategyDefaults: [hoverPreload({ delay: 20, onTouch: false })],
+    })
+    // Started once for the router, with its defaults under the options passed
+    expect(started).toEqual([{ delay: 20, onTouch: true }])
 
     fireEvent.mouseEnter(links.a)
     fireEvent.mouseLeave(links.a)
+    await vi.advanceTimersByTimeAsync(19)
+    expect(preloads).toEqual([])
+    await vi.advanceTimersByTimeAsync(1)
     expect(preloads.map(([id]) => id)).toEqual(['a'])
     fireEvent.touchStart(links.b)
-    expect(preloads.map(([id]) => id)).toEqual(['a'])
+    expect(preloads.map(([id]) => id)).toEqual(['a', 'b'])
   })
 })

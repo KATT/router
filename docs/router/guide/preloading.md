@@ -96,6 +96,8 @@ You can also set the `preloadDelay` prop on individual `<Link>` components to ov
 
 ### Batching Viewport Preloads
 
+> **Experimental:** Preload strategies are experimental and subject to change.
+
 With `'viewport'`, each link has its own timer, so links that scroll into view at different times preload at different times. `batchedViewportPreload()` is a preload strategy that shares one timer between links instead:
 
 ```tsx
@@ -117,6 +119,8 @@ The batch belongs to the router. Every link on it that uses `batchedViewportPrel
 
 ### Preload Strategies
 
+> **Experimental:** Preload strategies are experimental and subject to change.
+
 `preload` and `defaultPreload` also take a strategy, which decides when links preload. The strings are the built-in strategies with their default options, and you can import them to pass options:
 
 | String       | Strategy                                 |
@@ -125,40 +129,40 @@ The batch belongs to the router. Every link on it that uses `batchedViewportPrel
 | `'viewport'` | `viewportPreload({ delay, rootMargin })` |
 | `'render'`   | `renderPreload()`                        |
 
-Set options for every use of a strategy on the router with `defaultPreloadOptions`, by name. They also apply to the strings:
+To set options for every use of a strategy on the router, list it, configured, in `preloadStrategyDefaults`. Each strategy carries the factory that made it as its `tag`, and that's how the router matches them, so this also applies to the strings:
 
 ```tsx
 const router = createRouter({
   // ...
   defaultPreload: 'viewport',
-  defaultPreloadOptions: {
-    viewport: { rootMargin: '200px' },
-    batchedViewport: { delay: 150 },
-  },
+  preloadStrategyDefaults: [
+    // Also applies to preload="viewport"
+    viewportPreload({ rootMargin: '200px' }),
+    // Inherited by every batchedViewportPreload() that doesn't set a delay
+    batchedViewportPreload({ delay: 150 }),
+  ],
 })
 ```
 
-For a delay, a link's own `preloadDelay` wins, then the options passed to the strategy, then `defaultPreloadOptions`, then `defaultPreloadDelay`. `rootMargin` defaults to `'100px'`. The same options always give the same strategy, so creating one inline in render is fine.
+Options passed to a strategy win over the router's. For a delay, a link's own `preloadDelay` wins, then the options passed to the strategy, then `preloadStrategyDefaults`, then `defaultPreloadDelay`. `rootMargin` defaults to `'100px'`. The same options always give the same strategy, so creating one inline in render is fine, and strategies that end up with the same options once the router's are merged in share one start, and so one batch.
 
-Write your own with `createPreloadStrategy`. It's started once per router, with the router's `defaultPreloadOptions` for its name merged under the options it's called with, and returns what runs for each link on the client:
+Write your own with `createPreloadStrategy`. It works like the built-ins, `preloadStrategyDefaults` included, with nothing to register. It's started once per router and set of options, with the router's defaults for it merged under the options it's called with, and returns what runs for each link on the client:
 
 ```tsx
 import { createPreloadStrategy } from '@tanstack/react-router'
 
-declare module '@tanstack/react-router' {
-  interface PreloadStrategyOptions {
-    eager: { onTouch?: boolean }
-  }
-}
-
-// Hover or focus preloads at once, and leaving doesn't cancel it
-export const eagerPreload = createPreloadStrategy(
-  'eager',
-  (options, router) => (link) => ({
-    enter: link.preload,
-    touch: options.onTouch ? link.preload : undefined,
+// Hover or focus preloads after `delay`, and leaving doesn't cancel it
+export const eagerPreload = createPreloadStrategy<{ delay?: number }>(
+  (options) => (link) => ({
+    enter: () => setTimeout(link.preload, options.delay ?? 0),
   }),
 )
+
+const router = createRouter({
+  // ...
+  defaultPreload: eagerPreload(),
+  preloadStrategyDefaults: [eagerPreload({ delay: 20 })],
+})
 ```
 
 The router stage is where a strategy reads its options and keeps state its links share. The link stage gets the link's element, its own `preloadDelay` and a `preload()` function, and can return handlers: `enter` (focus or mouse enter), `leave` (blur or mouse leave), `touch`, `cancel` (a click, before it navigates) and `cleanup` (the link unmounts or its options change).

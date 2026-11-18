@@ -1,11 +1,12 @@
 import { delayedPreload } from './delay'
 import { createPreloadStrategy, delayOf } from './shared'
 
+/** @experimental */
 export interface IntentPreloadOptions {
   /**
    * Milliseconds from focus or hover to the preload.
    * A link's own `preloadDelay` wins.
-   * @default `defaultPreloadOptions.intent.delay`, else `defaultPreloadDelay`
+   * @default the router's `preloadStrategyDefaults` entry for `intentPreload`, else `defaultPreloadDelay`
    */
   delay?: number
 }
@@ -13,9 +14,9 @@ export interface IntentPreloadOptions {
 /**
  * `'intent'`: focus or hover preloads after the delay, and leaving first
  * cancels it. Touch preloads at once.
+ * @experimental
  */
-export const intentPreload = createPreloadStrategy(
-  'intent',
+export const intentPreload = createPreloadStrategy<IntentPreloadOptions>(
   (options, router) => (link) => {
     const { start, cancel } = delayedPreload(
       link,
