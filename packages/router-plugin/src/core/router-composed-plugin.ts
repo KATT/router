@@ -3,7 +3,7 @@ import { createRouterCodeSplitterPlugin } from './router-code-splitter-plugin'
 import { createRouterHmrPlugin } from './router-hmr-plugin'
 import { createRouterPreloadStringsPlugin } from './router-preload-strings-plugin'
 import { createRouterPluginContext } from './router-plugin-context'
-import { getConfig } from './config'
+import { getConfig, getPreloadStringsOptions } from './config'
 import type { Config } from './config'
 import type { HmrStyle } from './hmr'
 import type {
@@ -90,11 +90,11 @@ export const unpluginRouterComposedFactory: UnpluginFactory<
   ]
   // Before code splitting and HMR, so split route components are rewritten
   // too
-  if (
-    userConfig.experimental?.compilePreloadStrings &&
-    userConfig.target === 'react'
-  ) {
-    result.push(createRouterPreloadStringsPlugin())
+  const preloadStringsOptions = getPreloadStringsOptions(
+    userConfig.experimental?.compilePreloadStrings,
+  )
+  if (preloadStringsOptions && userConfig.target === 'react') {
+    result.push(createRouterPreloadStringsPlugin(preloadStringsOptions))
   }
   if (userConfig.autoCodeSplitting) {
     result.push(...routerCodeSplitter)

@@ -2,6 +2,7 @@ import * as t from '@babel/types'
 import * as babel from '@babel/core'
 import { generateFromAst, parseAst } from '@tanstack/router-utils'
 import type { GeneratorResult } from '@tanstack/router-utils'
+import type { PreloadStringsOptions } from './config'
 
 /**
  * The package whose router APIs the plugin rewrites the options of, and that
@@ -33,6 +34,23 @@ const COMPONENT_PROP_KEYS = new Map([
   ['Link', 'preload'],
   ['RouterProvider', 'defaultPreload'],
 ])
+
+/**
+ * The arguments of the strategy call for `mode`: none without options, else
+ * its options as an object literal, keys sorted. The built-ins make one
+ * strategy per JSON of their options, so every site in the app shares it.
+ */
+function getStrategyArguments(
+  mode: string,
+  options: PreloadStringsOptions | undefined,
+): Array<t.Expression> {
+  const entries = Object.entries(
+    options?.[mode as keyof PreloadStringsOptions] ?? {},
+  )
+    .filter(([, value]) => value !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+  return entries.length ? [t.valueToNode(Object.fromEntries(entries))] : []
+}
 
 /** A file can only have candidates when it imports the router package */
 const routerImportPattern = /['"]@tanstack\/react-router['"]/
@@ -219,7 +237,9 @@ interface Candidate {
  * values that aren't literals of the three modes. The strategy comes from
  * the file's import of it (from `@tanstack/react-router` or
  * `@tanstack/router-core`), else the router namespace it imports, else a new
- * named import from `@tanstack/react-router`.
+ * named import from `@tanstack/react-router`. The strategy is called with
+ * the `options` for its mode, eg. `viewportPreload({ rootMargin: '200px' })`,
+ * or without any.
  *
  * Returns `null` when nothing changed, including for a file it can't parse
  * (the bundler reports the error).
@@ -227,6 +247,7 @@ interface Candidate {
 export function compilePreloadStrings(opts: {
   code: string
   filename: string
+  options?: PreloadStringsOptions
 }): GeneratorResult | null {
   if (!routerImportPattern.test(opts.code)) {
     return null
@@ -362,7 +383,12 @@ export function compilePreloadStrings(opts: {
           site.path.scope.getBinding(local) === scope.getBinding(local),
       )
       if (found) {
-        site.replace(t.callExpression(t.cloneNode(found[1]), []))
+        site.replace(
+          t.callExpression(
+            t.cloneNode(found[1]),
+            getStrategyArguments(site.mode, opts.options),
+          ),
+        )
       } else {
         unresolved.push(site)
       }
@@ -383,7 +409,12 @@ export function compilePreloadStrings(opts: {
     }
     addImport(local, name)
     for (const site of unresolved) {
-      site.replace(t.callExpression(t.identifier(local), []))
+      site.replace(
+        t.callExpression(
+          t.identifier(local),
+          getStrategyArguments(site.mode, opts.options),
+        ),
+      )
     }
   }
 

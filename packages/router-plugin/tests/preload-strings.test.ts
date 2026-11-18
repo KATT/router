@@ -8,6 +8,7 @@ import {
 } from 'node:fs/promises'
 import { SourceMap } from 'node:module'
 import path from 'node:path'
+import ts from 'typescript'
 import { createServer } from 'vite'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -19,7 +20,7 @@ import {
 import { tanstackRouter } from '../src/vite'
 import { formatSnapshot } from './format-snapshot'
 import type { SourceMapPayload } from 'node:module'
-import type { Config } from '../src/core/config'
+import type { Config, PreloadStringsOptions } from '../src/core/config'
 import type { Plugin } from 'vite'
 
 const dir = path.resolve(__dirname, './preload-strings')
@@ -120,6 +121,151 @@ export const Nav = () => <Link to="/" preload="intent" />
 
     expect(result!.map?.sources).toEqual(['/app/routes/index.tsx'])
   })
+})
+
+describe('compilePreloadStrings with options', async () => {
+  // Written in another key order than the plugin's
+  const options = {
+    viewport: { rootMargin: '200px', delay: 100 },
+    render: {},
+  } satisfies PreloadStringsOptions
+  const files = await readdir(path.join(dir, 'test-files', 'options'))
+
+  it.each(files)(
+    'calls the strategies with their options in "%s"',
+    async (filename) => {
+      const code = await readFile(
+        path.join(dir, 'test-files', 'options', filename),
+        'utf-8',
+      )
+
+      const result = compilePreloadStrings({ code, filename, options })
+
+      expect(result).not.toBeNull()
+      await expect(
+        await formatSnapshot(result!.code, filename),
+      ).toMatchFileSnapshot(path.join(dir, 'snapshots', 'options', filename))
+    },
+  )
+
+  const nav = `import { Link } from '@tanstack/react-router'
+export const Nav = () => <Link to="/" preload="intent" />
+`
+  const compile = (options?: PreloadStringsOptions) =>
+    compilePreloadStrings({ code: nav, filename: 'nav.tsx', options })!.code
+
+  it('writes falsy option values', () => {
+    expect(compile({ intent: { delay: 0 } })).toMatch(
+      /preload=\{intentPreload\(\{\s*delay: 0\s*\}\)\}/,
+    )
+  })
+
+  it('calls a strategy without options as without the object form', () => {
+    const plain = compile()
+    expect(plain).toContain('preload={intentPreload()}')
+    expect(compile({})).toBe(plain)
+    expect(compile({ intent: {} })).toBe(plain)
+    expect(compile({ intent: { delay: undefined } })).toBe(plain)
+    expect(compile({ viewport: { delay: 100 } })).toBe(plain)
+  })
+
+  it.each(await readdir(path.join(dir, 'test-files', 'rewritten')))(
+    'gives "%s" the same output with `{}` as without options',
+    async (filename) => {
+      const code = await readFile(
+        path.join(dir, 'test-files', 'rewritten', filename),
+        'utf-8',
+      )
+      expect(compilePreloadStrings({ code, filename, options: {} })!.code).toBe(
+        compilePreloadStrings({ code, filename })!.code,
+      )
+    },
+  )
+})
+
+describe('the output with options', () => {
+  // The router's own options, all rewritten
+  const app = `import {
+  Link,
+  RouterProvider,
+  createRootRoute,
+  createRouter,
+  linkOptions,
+  useLinkProps,
+} from '@tanstack/react-router'
+
+const routeTree = createRootRoute()
+export const router = createRouter({ routeTree, defaultPreload: 'viewport' })
+export const options = linkOptions({ to: '/', preload: 'render' })
+
+export function App() {
+  const props = useLinkProps({ to: '/', preload: 'intent' })
+  return (
+    <>
+      <a {...props} />
+      <Link to="/" preload="viewport" />
+      <RouterProvider router={router} defaultPreload="intent" />
+    </>
+  )
+}
+`
+
+  /**
+   * The TypeScript errors of `app` compiled with `options`, checked against
+   * the types of `@tanstack/react-router`
+   */
+  async function typeErrors(options: PreloadStringsOptions) {
+    const result = compilePreloadStrings({
+      code: app,
+      filename: 'app.tsx',
+      options,
+    })
+    expect(result).not.toBeNull()
+    // Inside the package, so `@tanstack/react-router` resolves
+    const root = await mkdtemp(path.join(__dirname, '.preload-strings-'))
+    try {
+      const file = path.join(root, 'app.tsx')
+      await writeFile(file, result!.code)
+      const program = ts.createProgram([file], {
+        jsx: ts.JsxEmit.ReactJSX,
+        module: ts.ModuleKind.ESNext,
+        moduleResolution: ts.ModuleResolutionKind.Bundler,
+        target: ts.ScriptTarget.ES2022,
+        strict: true,
+        noEmit: true,
+        skipLibCheck: true,
+        types: [],
+      })
+      return ts
+        .getPreEmitDiagnostics(program)
+        .map((diagnostic) =>
+          ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
+        )
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }
+
+  it('type-checks against the options of the strategies', async () => {
+    expect(
+      await typeErrors({
+        intent: { delay: 0 },
+        viewport: { delay: 100, rootMargin: '200px' },
+        render: {},
+      }),
+    ).toEqual([])
+  }, 60_000)
+
+  it('fails to type-check with options the strategies do not take', async () => {
+    // (The config schema rejects these)
+    const errors = await typeErrors({
+      viewport: { rootMargin: 200 },
+    } as unknown as PreloadStringsOptions)
+    // At `createRouter` and at `<Link>`
+    expect(errors).toEqual(
+      Array(2).fill("Type 'number' is not assignable to type 'string'."),
+    )
+  }, 60_000)
 })
 
 describe('preloadStringsCodeFilter', () => {
@@ -224,6 +370,15 @@ describe('the Vite plugin', () => {
     expect(pluginNames({ target, ...flag })).not.toContain(
       'tanstack-router:preload-strings',
     )
+  })
+
+  it('adds the transform for an object of options', () => {
+    expect(
+      pluginNames({
+        target: 'react',
+        experimental: { compilePreloadStrings: { intent: { delay: 0 } } },
+      }),
+    ).toContain('tanstack-router:preload-strings')
   })
 
   it('leaves it out by default', () => {
@@ -339,6 +494,29 @@ export const Route = createFileRoute('/')({
     const code = await transformRoute(true)
     expect(code).toContain('intentPreload()')
     expect(code).not.toContain('"intent"')
+  }, 30_000)
+
+  it('calls the strategies with the options of the object form', async () => {
+    await withDevServer(
+      linkRoute.replace('"intent"', '"viewport"'),
+      {
+        experimental: {
+          compilePreloadStrings: {
+            viewport: { rootMargin: '200px', delay: 100 },
+          },
+        },
+      },
+      async ({ transform }) => {
+        await transform('/routes/index.tsx')
+        const { code } = await transform(
+          '/routes/index.tsx?tsr-split=component',
+        )
+        expect(code).toMatch(
+          /viewportPreload\(\{\s*delay: 100,\s*rootMargin: ["']200px["']\s*\}\)/,
+        )
+        expect(code).not.toContain('"viewport"')
+      },
+    )
   }, 30_000)
 
   it('is off by default', async () => {

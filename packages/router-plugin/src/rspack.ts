@@ -6,7 +6,11 @@ import { createRouterGeneratorPlugin } from './core/router-generator-plugin'
 import { unpluginRouterComposedFactory } from './core/router-composed-plugin'
 import { createRouterPluginContext } from './core/router-plugin-context'
 import { createRouterPreloadStringsPlugin } from './core/router-preload-strings-plugin'
-import type { CodeSplittingOptions, Config } from './core/config'
+import type {
+  CodeSplittingOptions,
+  Config,
+  PreloadStringsOptions,
+} from './core/config'
 import type { RouterPluginContext } from './core/router-plugin-context'
 
 type RspackRouterPluginOptions = Partial<Config> | (() => Partial<Config>)
@@ -72,12 +76,15 @@ const TanStackRouterCodeSplitterRspack = (
 /**
  * The `experimental.compilePreloadStrings` transform on its own, for
  * integrations that compose the router's plugins themselves (TanStack
- * Start). Add it only when the option is on, and only for React.
+ * Start). Add it only when the option is on, and only for React. `options`
+ * are the option's object form (`{}` for `true`), or a function that returns
+ * them, read at each transform.
  *
  * @experimental
  */
-const TanStackRouterPreloadStringsRspack = () =>
-  createRspackPlugin(createRouterPreloadStringsPlugin)()
+const TanStackRouterPreloadStringsRspack = (
+  options?: PreloadStringsOptions | (() => PreloadStringsOptions | undefined),
+) => createRspackPlugin(createRouterPreloadStringsPlugin)(options)
 
 /**
  * @example
@@ -105,4 +112,9 @@ export {
   TanStackRouterPreloadStringsRspack,
   tanstackRouter,
 }
-export type { Config, CodeSplittingOptions, RouterPluginContext }
+export type {
+  Config,
+  CodeSplittingOptions,
+  PreloadStringsOptions,
+  RouterPluginContext,
+}

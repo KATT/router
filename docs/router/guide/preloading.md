@@ -216,6 +216,35 @@ const link = <Link to="/posts" preload={intentPreload()} />
 - Strings it can't see as literals, such as `preload={mode}`, strings from a library, or options built at run time, still load their strategy on demand. That's why the on-demand chunk is always emitted: the build can't prove that no string reaches a Link.
 - It's for React only. Set it in `tanstackRouter()`, `tsr.config.json`, or with TanStack Start, in `tanstackStart({ router: { experimental: { compilePreloadStrings: true } } })`.
 
+Instead of `true`, you can pass options for the strategies the strings are rewritten to. The plugin writes them into the code at build time, so they cost nothing at runtime:
+
+```ts
+tanstackRouter({
+  target: 'react',
+  experimental: {
+    compilePreloadStrings: {
+      viewport: { rootMargin: '200px', delay: 100 },
+      intent: { delay: 0 },
+    },
+  },
+})
+```
+
+```tsx
+// What you write
+const link = <Link to="/posts" preload="viewport" />
+
+// What the plugin compiles it to
+const link = (
+  <Link
+    to="/posts"
+    preload={viewportPreload({ delay: 100, rootMargin: '200px' })}
+  />
+)
+```
+
+`intent` takes `delay`, `viewport` takes `delay` and `rootMargin`, and `render` takes none. The values must be finite numbers (`delay`) and strings (`rootMargin`), and the build fails on anything else. A mode without options is rewritten to its strategy without any, as with `true`. The options only reach the strings the plugin rewrites: strings it can't see, such as `preload={mode}`, `<Router.Link>` or a `createLink` component imported from another file, still load their strategy on demand **with its default options**. Where those need the options too, pass the strategy itself, eg. `preload={viewportPreload({ rootMargin: '200px' })}`.
+
 #### Bundle size
 
 Links carry no code for the strings, so the JS every visitor downloads up front (the initial JS) only has the strategies the app imports, with or without the plugin, and is smaller than in versions where Links handled the strings themselves. The on-demand chunk with the built-ins is still emitted to your build output, so the total size of all emitted files grows a little, but a visitor only downloads it when a string the plugin couldn't see reaches a Link.

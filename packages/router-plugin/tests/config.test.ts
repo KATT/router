@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import { getConfig } from '../src'
 import type { Config } from '../src'
 
@@ -141,5 +142,69 @@ describe('getConfig: experimental.compilePreloadStrings', () => {
       getConfig({ experimental: { compilePreloadStrings: false } }, withJson)
         .experimental,
     ).toEqual({ compilePreloadStrings: false })
+  })
+
+  const options = {
+    viewport: { rootMargin: '200px', delay: 100 },
+    intent: { delay: 0 },
+  }
+
+  it('reads an object of options inline', () => {
+    expect(
+      getConfig(
+        {
+          experimental: { compilePreloadStrings: { ...options, render: {} } },
+        },
+        withoutJson,
+      ).experimental,
+    ).toEqual({ compilePreloadStrings: { ...options, render: {} } })
+  })
+
+  it('reads an object of options from tsr.config.json', () => {
+    const root = path.resolve(
+      import.meta.dirname,
+      'config',
+      'withPreloadOptionsJson',
+    )
+    expect(getConfig({}, root).experimental).toEqual({
+      compilePreloadStrings: options,
+    })
+    // The inline option replaces the file's
+    expect(
+      getConfig({ experimental: { compilePreloadStrings: true } }, root)
+        .experimental,
+    ).toEqual({ compilePreloadStrings: true })
+  })
+
+  it.each([
+    [{ intent: { delay: '100' } }, 'intent.delay', 'expected number'],
+    [{ viewport: { delay: Infinity } }, 'viewport.delay', 'expected number'],
+    [{ viewport: { rootMargin: 200 } }, 'viewport.rootMargin', 'string'],
+    [
+      { viewport: { rootMargin: () => '200px' } },
+      'viewport.rootMargin',
+      'string',
+    ],
+    [{ viewport: { threshold: 0.5 } }, 'viewport', '"threshold"'],
+    [{ render: { delay: 1 } }, 'render', '"delay"'],
+    [{ hover: {} }, '', '"hover"'],
+    ['viewport', '', 'Expected a boolean, or an object'],
+  ])('rejects %j', (value, at, message) => {
+    let error: unknown
+    try {
+      getConfig(
+        { experimental: { compilePreloadStrings: value as never } },
+        withoutJson,
+      )
+    } catch (e) {
+      error = e
+    }
+    expect(error).toBeInstanceOf(z.ZodError)
+    const [issue, ...rest] = (error as z.ZodError).issues
+    expect(rest).toEqual([])
+    expect(issue!.path.join('.')).toBe(
+      ['experimental.compilePreloadStrings', at].filter(Boolean).join('.'),
+    )
+    expect(issue!.message).toContain(message)
   })
 })
