@@ -350,28 +350,27 @@ export function useLinkProps<
   const externalLink = isActive === undefined && href
   const linkDisabled = disabled || href === undefined
 
-  const preloadStrategy = resolvePreloadStrategy(
+  // The strategy, started once for this router, decides when the link
+  // preloads. It runs again when the link's options change, and its handlers
+  // live on the Link's own ref. `preloadRoute` builds the location itself and
+  // only reads the options, so `dest` goes through as-is.
+  const preloader = resolvePreloadStrategy(
     options.reloadDocument || externalLink || linkDisabled
       ? false
       : (userPreload ?? router.options.defaultPreload),
+    router,
   )
-  const preloadDelay =
-    userPreloadDelay ?? router.options.defaultPreloadDelay ?? 0
 
-  // The strategy decides when the link preloads. It starts again when the
-  // link's options change, and its handlers live on the Link's own ref.
-  // `preloadRoute` builds the location itself and only reads the options, so
-  // `dest` goes through as-is.
   // eslint-disable-next-line react-hooks/rules-of-hooks
   React.useEffect(() => {
-    // Disabled preloading starts no strategy
-    if (!preloadStrategy) {
+    // Disabled preloading starts nothing
+    if (!preloader) {
       return
     }
-    const handlers = preloadStrategy({
+    const handlers = preloader({
       element: innerRef.current,
       key: innerRef,
-      delay: preloadDelay,
+      delay: userPreloadDelay,
       preload: () => preloadLink(router, dest),
     })
     innerRef.h = handlers || undefined
@@ -379,7 +378,7 @@ export function useLinkProps<
       innerRef.h = undefined
       handlers?.cleanup?.()
     }
-  }, [router, dest, preloadStrategy, preloadDelay, innerRef])
+  }, [router, dest, preloader, userPreloadDelay, innerRef])
 
   const props = collectElementProps(options, host)
   props.ref = forwardedRef ? mergedRef : innerRef

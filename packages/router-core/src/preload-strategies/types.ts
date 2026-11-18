@@ -1,11 +1,13 @@
+import type { AnyRouter } from '../router'
+
 /** What a strategy gets for one Link on the client. */
 export interface PreloadLink {
   /** The link's element, if its ref is attached */
   element: Element | null
   /** The same object for the Link's whole life, across option changes */
   key: object
-  /** The link's `preloadDelay`, or the router's `defaultPreloadDelay` */
-  delay: number
+  /** The link's own `preloadDelay`, if it sets one */
+  delay: number | undefined
   /** Preloads the link's destination now */
   preload: () => void
 }
@@ -24,9 +26,14 @@ export interface PreloadHandlers {
   cleanup?: () => void
 }
 
+/** A strategy started for one router: called for each Link. */
+export type LinkPreloader = (link: PreloadLink) => PreloadHandlers | void
+
 /**
- * Decides when a Link preloads. A Link calls it on the client when it mounts
+ * Decides when Links preload. It's started once per router, which is where
+ * it reads the router's defaults and keeps state its links share, and the
+ * function it returns runs for each Link on the client: when the Link mounts
  * and again when its options change. `'intent'`, `'viewport'` and `'render'`
  * are the built-in strategies by name.
  */
-export type PreloadStrategy = (link: PreloadLink) => PreloadHandlers | void
+export type PreloadStrategy = (router: AnyRouter) => LinkPreloader

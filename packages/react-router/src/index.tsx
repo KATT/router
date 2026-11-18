@@ -109,10 +109,14 @@ export type {
   SerializationAdapter,
   AnySerializationAdapter,
   SerializableExtensions,
+  BatchedViewportPreloadOptions,
+  IntentPreloadOptions,
+  LinkPreloader,
   PreloadHandlers,
   PreloadLink,
   PreloadOption,
   PreloadStrategy,
+  ViewportPreloadOptions,
 } from '@tanstack/router-core'
 
 export {

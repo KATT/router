@@ -103,31 +103,40 @@ import { batchedViewportPreload, createRouter } from '@tanstack/react-router'
 
 const router = createRouter({
   // ...
-  defaultPreload: batchedViewportPreload(),
-  defaultPreloadDelay: 100,
+  defaultPreload: batchedViewportPreload({ delay: 150 }),
 })
 ```
 
 - A link that enters the viewport is queued. A link that leaves before the flush is dropped.
-- Every time a link enters or leaves the viewport, the timer restarts with that link's `preloadDelay`. Every scroll (of the page or any container) and resize restarts it too, so nothing preloads until the page has settled.
+- Every intersection change, scroll (of the page or any container) and resize restarts the timer, so nothing preloads until the page has settled.
 - When the timer fires, every queued link preloads in the same tick.
 
-This helps data layers that batch requests per tick, such as tRPC's batch links or DataLoader, send one request per screenful instead of one per link. A link that comes back into view is queued again, and the router's usual staleness rules decide whether its loaders run. Links that share one `batchedViewportPreload()` share one batch, so create it once.
+This helps data layers that batch requests per tick, such as tRPC's batch links or DataLoader, send one request per screenful instead of one per link. A link that comes back into view is queued again, and the router's usual staleness rules decide whether its loaders run.
+
+The batch belongs to the router. Every link on it that uses `batchedViewportPreload()` with the same options shares it, whether it's the router's `defaultPreload` or written inline as `<Link preload={batchedViewportPreload()} />`.
 
 ### Preload Strategies
 
-`preload` and `defaultPreload` also take a strategy: a function that decides when a link preloads. `'intent'`, `'viewport'` and `'render'` are `intentPreload`, `viewportPreload` and `renderPreload` by name, and you can import them instead of the strings. A strategy gets the link's element, its `preloadDelay` and a `preload()` function when the link mounts, and can return handlers for the link's events:
+`preload` and `defaultPreload` also take a strategy, which decides when links preload. The strings are the built-in strategies with their default options, and you can import them to pass options:
+
+| String       | Strategy                                 |
+| ------------ | ---------------------------------------- |
+| `'intent'`   | `intentPreload({ delay })`               |
+| `'viewport'` | `viewportPreload({ delay, rootMargin })` |
+| `'render'`   | `renderPreload()`                        |
+
+A link's own `preloadDelay` wins over a strategy's `delay`, which wins over the router's `defaultPreloadDelay`. A strategy's `rootMargin` wins over the router's `defaultPreloadViewportMargin` (`'100px'`). The same options always give the same strategy, so creating one inline in render is fine.
+
+A strategy is started once per router, and returns what runs for each link on the client:
 
 ```tsx
 import type { PreloadStrategy } from '@tanstack/react-router'
 
 // Hover or focus preloads at once, and leaving doesn't cancel it
-const eager: PreloadStrategy = (link) => ({ enter: link.preload })
-
-<Link to="/posts" preload={eager} />
+const eager: PreloadStrategy = (router) => (link) => ({ enter: link.preload })
 ```
 
-The handlers are `enter` (focus or mouse enter), `leave` (blur or mouse leave), `touch`, `cancel` (a click, before it navigates) and `cleanup` (the link unmounts or its options change).
+The router stage is where a strategy reads the router's options and keeps state its links share. The link stage gets the link's element, its own `preloadDelay` and a `preload()` function, and can return handlers: `enter` (focus or mouse enter), `leave` (blur or mouse leave), `touch`, `cancel` (a click, before it navigates) and `cleanup` (the link unmounts or its options change).
 
 ## Built-in Preloading, Freshness, and Retention
 

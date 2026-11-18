@@ -242,6 +242,14 @@ export interface RouterOptions<
    */
   defaultPreloadDelay?: number
   /**
+   * How far outside the viewport a link counts as in view for viewport
+   * preloading, as an IntersectionObserver `rootMargin`. A viewport strategy's
+   * own `rootMargin` wins.
+   *
+   * @default '100px'
+   */
+  defaultPreloadViewportMargin?: string
+  /**
    * The default `preloadIntentProximity` a route should use if no preloadIntentProximity is provided.
    *
    * @default 0

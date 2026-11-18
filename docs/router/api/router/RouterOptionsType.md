@@ -61,6 +61,13 @@ The `RouterOptions` type accepts an object with the following properties and met
 - Defaults to `50`
 - The delay in milliseconds before intent focus/hover and viewport preloading. Touch intent preloads immediately.
 
+### `defaultPreloadViewportMargin` property
+
+- Type: `string`
+- Optional
+- Defaults to `'100px'`
+- How far outside the viewport a link counts as in view for viewport preloading, as an `IntersectionObserver` `rootMargin`. A viewport strategy's own `rootMargin` wins.
+
 ### `defaultComponent` property
 
 - Type: `RouteComponent`

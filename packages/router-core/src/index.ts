@@ -312,10 +312,14 @@ export {
   viewportPreload,
 } from './preload-strategies'
 export type {
+  BatchedViewportPreloadOptions,
+  IntentPreloadOptions,
+  LinkPreloader,
   PreloadHandlers,
   PreloadLink,
   PreloadOption,
   PreloadStrategy,
+  ViewportPreloadOptions,
 } from './preload-strategies'
 
 export {
