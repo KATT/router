@@ -1,0 +1,9 @@
+{
+  "target": "react",
+  "experimental": {
+    "compilePreloadStrings": {
+      "viewport": { "rootMargin": "200px", "delay": 100 },
+      "intent": { "delay": 0 }
+    }
+  }
+}

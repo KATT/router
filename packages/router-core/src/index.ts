@@ -305,6 +305,27 @@ export type {
 export { retainSearchParams, stripSearchParams } from './searchMiddleware'
 
 export {
+  batchedViewportPreload,
+  createPreloadStrategy,
+  intentPreload,
+  linkNavigatingClick,
+  preloadString,
+  renderPreload,
+  viewportPreload,
+} from './preload-strategies/index'
+export type {
+  BatchedViewportPreloadOptions,
+  IntentPreloadOptions,
+  LinkPreloader,
+  PreloadLink,
+  PreloadMode,
+  PreloadOption,
+  PreloadRef,
+  PreloadStrategy,
+  ViewportPreloadOptions,
+} from './preload-strategies/index'
+
+export {
   defaultParseSearch,
   defaultStringifySearch,
   parseSearchWith,

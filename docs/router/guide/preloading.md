@@ -94,6 +94,162 @@ const router = createRouter({
 
 You can also set the `preloadDelay` prop on individual `<Link>` components to override the default behavior on a per-link basis.
 
+### Batching Viewport Preloads
+
+> **Experimental:** Preload strategies are experimental and subject to change.
+
+With `'viewport'`, each link has its own timer, so links that scroll into view at different times preload at different times. In React, `batchedViewportPreload()` is a [preload strategy](#preload-strategies) that shares one timer between links instead:
+
+```tsx
+import { batchedViewportPreload, createRouter } from '@tanstack/react-router'
+
+const router = createRouter({
+  // ...
+  defaultPreload: batchedViewportPreload({ delay: 150 }),
+})
+```
+
+- A link that enters the viewport is queued. A link that leaves before the flush, or that the Link navigates on with a click, is dropped. A click that doesn't navigate in the same tab (with a modifier key, another button, `target="_blank"`, or a `preventDefault()` in your `onClick`) doesn't drop it.
+- Every intersection change, scroll (of the page or any container) and resize restarts the timer, so nothing preloads until the page has settled.
+- The timer waits the strategy's own `delay`, else the router's `defaultPreloadDelay`. A link's own `preloadDelay` doesn't change it, since the timer is shared.
+- When the timer fires, every queued link preloads in the same tick.
+
+This helps data layers that batch requests per tick, such as tRPC's batch links or DataLoader, send one request per screenful instead of one per link. A link that comes back into view is queued again, and the router's usual staleness rules decide whether its loaders run.
+
+The batch belongs to the router. Every link on it that uses `batchedViewportPreload()` with the same options shares it, whether it's the router's `defaultPreload` or written inline as `<Link preload={batchedViewportPreload()} />`. It listens to the page only while it has links: once the last one unmounts, it stops, and the next link starts it again.
+
+### Preload Strategies
+
+> **Experimental:** Preload strategies are experimental and subject to change.
+
+In React, `preload` and `defaultPreload` also take a strategy, which decides when links preload. Each string works like a built-in strategy with its default options, and you can import the strategy to pass options:
+
+| String       | Strategy                                 |
+| ------------ | ---------------------------------------- |
+| `'intent'`   | `intentPreload({ delay })`               |
+| `'viewport'` | `viewportPreload({ delay, rootMargin })` |
+| `'render'`   | `renderPreload()`                        |
+
+Links bundle the three built-in strategies, as a string only known at run time can name any of them. See [Strings Are Their Built-in Strategies](#strings-are-their-built-in-strategies).
+
+For a delay, a link's own `preloadDelay` wins, then the options passed to the strategy, then `defaultPreloadDelay` (except for `batchedViewportPreload()`, whose shared timer ignores links' own `preloadDelay`). `rootMargin` defaults to `'100px'`.
+
+The same options always give the same strategy, so creating one inline in render is fine. Options are the same when their string, number, boolean and `null` values are, in any key order; `undefined` values don't count, so `intentPreload()`, `intentPreload({})` and `intentPreload({ delay: undefined })` are the same strategy. Options that hold an object or a function give a new strategy on every call, which restarts the Links that use it on every render: create such a strategy once, outside render. To use the same options across the app, create the strategy once and use it everywhere:
+
+```tsx
+export const batched = batchedViewportPreload({ delay: 150 })
+
+const router = createRouter({
+  // ...
+  defaultPreload: batched,
+})
+
+// elsewhere
+<Link to="/posts" preload={batched} />
+```
+
+The built-in strategies are small: they keep no state between links, so they don't go through `createPreloadStrategy`, and an app ships only the ones it imports. Write your own with `createPreloadStrategy`. It's started once per router with the options it's called with, and returns what runs for each link on the client:
+
+```tsx
+import { createPreloadStrategy } from '@tanstack/react-router'
+
+// Pointer enter preloads at once, and leaving doesn't cancel it
+export const eagerPreload = createPreloadStrategy<{ onTouch?: boolean }>(
+  (options) =>
+    ({ element, preload }) => {
+      if (!element) return
+      const events = options.onTouch
+        ? ['pointerenter', 'touchstart']
+        : ['pointerenter']
+      events.forEach((type) => element.addEventListener(type, preload))
+      return () =>
+        events.forEach((type) => element.removeEventListener(type, preload))
+    },
+)
+```
+
+The router stage is where a strategy reads its options and keeps state its links share. The link stage gets `{ element, key, delay, preload }`: the link's element (`null` until its ref is attached), an object that stays the same for the link's whole life, its own `preloadDelay` and a function that preloads its destination now. It listens to or observes the element itself, with whatever events it needs, and can return a cleanup that runs when the link unmounts or its options change.
+
+### Strings Are Their Built-in Strategies
+
+> **Experimental:** This is experimental and subject to change.
+
+In React, the strings `'intent'`, `'viewport'` and `'render'` are their built-in strategies, which Links bundle: a Link with a string starts its strategy as it mounts. Other values, such as `true` or an unknown string, are ignored, with a warning in development.
+
+
+Since strategies listen to the element themselves, a `preventDefault()` in your `onMouseEnter`, `onFocus` or `onTouchStart` handler no longer stops an `'intent'` preload (your handler is still called), and a custom link component made with `createLink` has to pass its `ref` on to the element for `'intent'` to work. If such a component switches to another element, the strategy starts again with the new one. A click still cancels a pending preload only when the Link navigates on it, as before.
+
+#### Rewrite the strings at build time
+
+> **Experimental:** This is experimental and subject to change.
+
+With the bundler plugin, `experimental.compilePreloadStrings` rewrites the strings you write as literals to imports of their strategies, with the options you give them:
+
+```ts
+// vite.config.ts
+import { tanstackRouter } from '@tanstack/router-plugin/vite'
+
+export default defineConfig({
+  plugins: [
+    tanstackRouter({
+      target: 'react',
+      experimental: { compilePreloadStrings: true },
+    }),
+    react(),
+  ],
+})
+```
+
+```tsx
+// What you write
+const router = createRouter({ routeTree, defaultPreload: 'viewport' })
+const link = <Link to="/posts" preload="intent" />
+
+// What the plugin compiles it to
+import { intentPreload, viewportPreload } from '@tanstack/react-router'
+const router = createRouter({ routeTree, defaultPreload: viewportPreload() })
+const link = <Link to="/posts" preload={intentPreload()} />
+```
+
+- It only rewrites the router's own options, and only literals of the three strings (`'intent'`, `'intent' as const` and the like): the `preload` prop of `<Link>` and of components `createLink` makes in the same file, `<RouterProvider defaultPreload>`, `defaultPreload` in `createRouter({...})`, and `preload` in `linkOptions({...})` (or an array of them) and `useLinkProps({...})`. These must be imported from `@tanstack/react-router`, by name or as a namespace (`Router.createRouter(...)`).
+- Everything else keeps its strings: other objects, such as a loader's or a server function's data, elements like `<video>`, member and namespaced names like `<motion.video>` or `<Router.Link>`, and your own wrapper components, such as a `MyLink` imported from another file.
+- It looks at your own JavaScript and TypeScript files that import `@tanstack/react-router`, not at `node_modules`, and not at MDX, Vue or HTML files. Files it can't parse are left as they are, for your bundler to report.
+- Strings it can't see as literals, such as `preload={mode}`, strings from a library, or options built at run time, stay strings, and Links run them as their built-in strategies with default options.
+- It's for React only. Set it in `tanstackRouter()`, `tsr.config.json`, or with TanStack Start, in `tanstackStart({ router: { experimental: { compilePreloadStrings: true } } })`.
+
+Instead of `true`, you can pass options for the strategies the strings are rewritten to. The plugin writes them into the code at build time, so they cost nothing at runtime:
+
+```ts
+tanstackRouter({
+  target: 'react',
+  experimental: {
+    compilePreloadStrings: {
+      viewport: { rootMargin: '200px', delay: 100 },
+      intent: { delay: 0 },
+    },
+  },
+})
+```
+
+```tsx
+// What you write
+const link = <Link to="/posts" preload="viewport" />
+
+// What the plugin compiles it to
+const link = (
+  <Link
+    to="/posts"
+    preload={viewportPreload({ delay: 100, rootMargin: '200px' })}
+  />
+)
+```
+
+`intent` takes `delay`, `viewport` takes `delay` and `rootMargin`, and `render` takes none. The values must be finite numbers (`delay`) and strings (`rootMargin`), and the build fails on anything else. A mode without options is rewritten to its strategy without any, as with `true`. The options only reach the strings the plugin rewrites: strings it can't see, such as `preload={mode}`, `<Router.Link>` or a `createLink` component imported from another file, still run their built-in strategy **with its default options**. Where those need the options too, pass the strategy itself, eg. `preload={viewportPreload({ rootMargin: '200px' })}`.
+
+#### Bundle size
+
+Links bundle the three built-in strategies for the strings, whether or not the app uses them.
+
 ## Built-in Preloading, Freshness, and Retention
 
 If you're using the built-in loaders, you can control how long preloaded data is considered fresh by setting either `routerOptions.defaultPreloadStaleTime` or `routeOptions.preloadStaleTime` to a number of milliseconds. **By default, preloaded data is considered fresh for 30 seconds.**
