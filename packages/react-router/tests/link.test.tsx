@@ -2,7 +2,6 @@ import React from 'react'
 import { renderToString } from 'react-dom/server'
 import {
   afterEach,
-  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -22,7 +21,7 @@ import {
 } from '@testing-library/react'
 
 import { z } from 'zod'
-import { loadPreloadStrings, trailingSlashOptions } from '@tanstack/router-core'
+import { trailingSlashOptions } from '@tanstack/router-core'
 import {
   Link,
   Outlet,
@@ -57,12 +56,6 @@ import {
   sleep,
 } from './utils'
 import type { RouterHistory } from '../src'
-
-// String modes load their strategies on demand: load them up front, so
-// events fired right after a render reach them.
-beforeAll(async () => {
-  await loadPreloadStrings()
-})
 
 const ioObserveMock = vi.fn()
 const ioDisconnectMock = vi.fn()

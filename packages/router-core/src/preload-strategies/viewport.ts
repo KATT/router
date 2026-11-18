@@ -34,7 +34,7 @@ export const viewportPreload = /* @__PURE__ */ memoByOptions(
 )
 
 /**
- * The strategy `'viewport'`'s own chunk is: `viewportPreload()`, without the
+ * The strategy `'viewport'` stands for: `viewportPreload()`, without the
  * memo or a wrapper. `viewportPreload(options)` passes its options as a fifth
  * argument.
  * @internal

@@ -2,7 +2,7 @@ import * as React from 'react'
 import { renderToString } from 'react-dom/server'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { loadPreloadString, loadPreloadStrings } from '@tanstack/router-core'
+import { preloadString } from '@tanstack/router-core'
 import {
   Link,
   RouterContextProvider,
@@ -14,12 +14,10 @@ import {
 import type * as Core from '@tanstack/router-core'
 import type { PreloadOption } from '../src'
 
-// Each string mode loads its strategy's chunk on demand. These tests run in
-// order: a chunk loads once per file, and the first tests run before any is
-// loaded. A chunk can't load while a test runs synchronously.
+// Each string mode is its built-in strategy, which Links bundle.
 vi.mock('@tanstack/router-core', async (importOriginal) => {
   const core = await importOriginal<typeof Core>()
-  return { ...core, loadPreloadString: vi.fn(core.loadPreloadString) }
+  return { ...core, preloadString: vi.fn(core.preloadString) }
 })
 
 let observed: Map<Element, IntersectionObserverCallback>
@@ -53,7 +51,7 @@ afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
-  vi.mocked(loadPreloadString).mockClear()
+  vi.mocked(preloadString).mockClear()
   cleanup()
 })
 
@@ -70,11 +68,7 @@ const setup = (isServer = false) => {
   return { router, preload, wrap }
 }
 
-const loadChunk = async () => {
-  await act(() => loadPreloadStrings())
-}
-
-test('server rendering with string modes neither runs loadPreloadString nor loads a chunk', () => {
+test('server rendering with string modes runs no strategy', () => {
   const { wrap, preload } = setup(true)
   const html = renderToString(
     wrap(
@@ -92,11 +86,11 @@ test('server rendering with string modes neither runs loadPreloadString nor load
     ),
   )
   expect(html).toContain('href="/c"')
-  expect(loadPreloadString).not.toHaveBeenCalled()
+  expect(preloadString).not.toHaveBeenCalled()
   expect(preload).not.toHaveBeenCalled()
 })
 
-test('disabled, external and reloadDocument Links start no strategy and load nothing', () => {
+test('disabled, external and reloadDocument Links start no strategy', () => {
   const { wrap, preload } = setup()
   const strategy = vi.fn()
   render(
@@ -117,12 +111,12 @@ test('disabled, external and reloadDocument Links start no strategy and load not
       </>,
     ),
   )
-  expect(loadPreloadString).not.toHaveBeenCalled()
+  expect(preloadString).not.toHaveBeenCalled()
   expect(strategy).not.toHaveBeenCalled()
   expect(preload).not.toHaveBeenCalled()
 })
 
-test('Links that mount while their chunks load follow option changes, and only mounted ones start', async () => {
+test('string-mode Links follow option changes', async () => {
   const add = vi.spyOn(Element.prototype, 'addEventListener')
   const { wrap, preload } = setup()
   const preloaded = () =>
@@ -171,14 +165,15 @@ test('Links that mount while their chunks load follow option changes, and only m
     ),
   )
   unmounted.unmount()
+  // The 'render' Links preloaded as they mounted
+  expect(preloaded()).toEqual([
+    '/gone',
+    '/toFunction',
+    '/toFalse',
+    '/toChanged',
+  ])
+  preload.mockClear()
 
-  // Interactions before the load: nothing preloads, nothing throws
-  for (const name of ['strict', 'toViewport', 'delayChanged']) {
-    const link = screen.getByRole('link', { name })
-    fireEvent.mouseEnter(link)
-    fireEvent.focus(link)
-    fireEvent.touchStart(link)
-  }
   act(() => {
     setters.toViewport!({ preload: 'viewport', preloadDelay: 0 })
     setters.toFunction!({ preload: intentPreload(), preloadDelay: 0 })
@@ -186,11 +181,8 @@ test('Links that mount while their chunks load follow option changes, and only m
     setters.toChanged!({ preload: 'render', to: '/changed' })
     setters.delayChanged!({ preload: 'intent', preloadDelay: 30 })
   })
+  // A 'render' Link preloads once, whatever its destination becomes
   expect(preload).not.toHaveBeenCalled()
-
-  await loadChunk()
-  // Only the mounted 'render' Link with its latest destination
-  expect(preloaded()).toEqual(['/changed'])
 
   // The StrictMode Link started once: one set of intent listeners
   const strict = screen.getByRole('link', { name: 'strict' })
@@ -205,12 +197,12 @@ test('Links that mount while their chunks load follow option changes, and only m
     'touchstart',
   ])
   fireEvent.mouseEnter(strict)
-  expect(preloaded()).toEqual(['/changed', '/strict'])
+  expect(preloaded()).toEqual(['/strict'])
 
   // intent -> viewport: the viewport strategy runs, hover doesn't preload
   const toViewport = screen.getByRole('link', { name: 'toViewport' })
   fireEvent.mouseEnter(toViewport)
-  expect(preloaded()).toHaveLength(2)
+  expect(preloaded()).toHaveLength(1)
   act(() => {
     observed.get(toViewport)!(
       [
@@ -222,28 +214,23 @@ test('Links that mount while their chunks load follow option changes, and only m
       {} as IntersectionObserver,
     )
   })
-  expect(preloaded()).toEqual(['/changed', '/strict', '/toViewport'])
+  expect(preloaded()).toEqual(['/strict', '/toViewport'])
 
   // string -> function: the function runs, 'render' never did
   fireEvent.mouseEnter(screen.getByRole('link', { name: 'toFunction' }))
-  expect(preloaded()).toEqual([
-    '/changed',
-    '/strict',
-    '/toViewport',
-    '/toFunction',
-  ])
+  expect(preloaded()).toEqual(['/strict', '/toViewport', '/toFunction'])
 
   // preloadDelay changed: the new delay counts
   vi.useFakeTimers()
   fireEvent.mouseEnter(screen.getByRole('link', { name: 'delayChanged' }))
-  expect(preloaded()).toHaveLength(4)
+  expect(preloaded()).toHaveLength(3)
   await vi.advanceTimersByTimeAsync(30)
-  expect(preloaded()).toHaveLength(5)
-  expect(preloaded()[4]).toBe('/delayChanged')
+  expect(preloaded()).toHaveLength(4)
+  expect(preloaded()[3]).toBe('/delayChanged')
 
   // string -> false: nothing
   fireEvent.mouseEnter(screen.getByRole('link', { name: 'toFalse' }))
-  expect(preloaded()).toHaveLength(5)
+  expect(preloaded()).toHaveLength(4)
 })
 
 test('hydrating a string-mode Link matches the server markup', async () => {

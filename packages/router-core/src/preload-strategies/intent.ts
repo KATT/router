@@ -30,8 +30,8 @@ export const intentPreload = /* @__PURE__ */ memoByOptions(
 )
 
 /**
- * The strategy `'intent'`'s own chunk is: `intentPreload()`, without the memo
- * or a wrapper. `intentPreload(options)` passes its options as a fifth
+ * The strategy `'intent'` stands for: `intentPreload()`, without the memo or
+ * a wrapper. `intentPreload(options)` passes its options as a fifth
  * argument.
  * @internal
  */

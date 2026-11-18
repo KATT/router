@@ -1,7 +1,6 @@
 import * as React from 'react'
 import {
   afterEach,
-  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -9,7 +8,6 @@ import {
   vi,
 } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { loadPreloadStrings } from '@tanstack/router-core'
 import {
   Link,
   RouterProvider,
@@ -28,12 +26,6 @@ import type {
   PreloadLink,
   PreloadOption,
 } from '../src'
-
-// String modes load their strategies on demand: load them up front, so
-// events fired right after a render reach them.
-beforeAll(async () => {
-  await loadPreloadStrings()
-})
 
 // One callback per observed element, so tests can scroll links independently.
 let observed: Map<Element, IntersectionObserverCallback>
