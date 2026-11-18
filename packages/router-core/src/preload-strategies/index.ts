@@ -31,7 +31,7 @@ export type PreloadOption =
   | 'render'
   | PreloadStrategy
 
-const started = new WeakMap<
+const started = /* @__PURE__ */ new WeakMap<
   PreloadStrategy,
   WeakMap<AnyRouter, LinkPreloader>
 >()
