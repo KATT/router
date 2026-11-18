@@ -23,7 +23,7 @@ const load = (mode: string) =>
           ? import('./strings/render')
           : undefined
   )?.then(
-    (module) => (modes[mode] = module.strategy),
+    (module) => (modes[mode] = module.default),
     // Once per failed load, however many Links wait on it; the next Link
     // with the string loads again
     (error) => {
