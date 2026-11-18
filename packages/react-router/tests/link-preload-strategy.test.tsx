@@ -239,6 +239,138 @@ describe('a click cancels a pending preload only when the Link navigates on it',
   })
 })
 
+describe('re-renders that keep the destination keep the strategy running', () => {
+  function App({ preload }: { preload: PreloadOption }) {
+    const [, rerender] = React.useState(0)
+    return (
+      <>
+        <button onClick={() => rerender((n) => n + 1)}>rerender</button>
+        {/* Inline functions and objects: new on every render */}
+        <Link
+          to="/target"
+          search={(prev: any) => prev}
+          state={{ from: 'here' } as any}
+          preload={preload}
+        >
+          Target
+        </Link>
+      </>
+    )
+  }
+
+  test('an inline search function does not re-add listeners', () => {
+    const add = vi.spyOn(Element.prototype, 'addEventListener')
+    const remove = vi.spyOn(Element.prototype, 'removeEventListener')
+    const { mount } = setup()
+    mount(<App preload="intent" />)
+    const link = screen.getByRole('link')
+    const added = listenerCalls(add, link).length
+    expect(added).toBeGreaterThan(0)
+
+    for (let i = 0; i < 3; i++) {
+      fireEvent.click(screen.getByRole('button', { name: 'rerender' }))
+    }
+    expect(listenerCalls(add, link)).toHaveLength(added)
+    expect(listenerCalls(remove, link)).toEqual([])
+  })
+
+  test('a pending intent preload survives a no-op re-render', async () => {
+    const { preload, mount } = setup({ defaultPreloadDelay: 50 })
+    mount(<App preload="intent" />)
+    vi.useFakeTimers()
+    fireEvent.mouseEnter(screen.getByRole('link'))
+    await vi.advanceTimersByTimeAsync(30)
+    fireEvent.click(screen.getByRole('button', { name: 'rerender' }))
+    await vi.advanceTimersByTimeAsync(20)
+    expect(preload).toHaveBeenCalledTimes(1)
+    // The latest options are the ones preloaded
+    expect(preload).toHaveBeenCalledWith(
+      expect.objectContaining({ to: '/target' }),
+    )
+  })
+
+  test('a no-op re-render does not restart the batch timer', async () => {
+    const { preload, mount } = setup({ defaultPreloadDelay: 50 })
+    mount(<App preload={batchedViewportPreload()} />)
+    vi.useFakeTimers()
+    intersect(screen.getByRole('link'))
+    await vi.advanceTimersByTimeAsync(30)
+    fireEvent.click(screen.getByRole('button', { name: 'rerender' }))
+    await vi.advanceTimersByTimeAsync(20)
+    expect(preload).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('a link component that changes its element', () => {
+  let swap: () => void
+  const SwapLink = createLink(
+    React.forwardRef<any, any>(function Swap(props, ref) {
+      const [state, setState] = React.useState<'none' | 'a' | 'button'>(
+        props.initial ?? 'a',
+      )
+      swap = () => setState((s) => (s === 'a' ? 'button' : 'a'))
+      const { initial: _, ...rest } = props
+      if (state === 'none') {
+        return null
+      }
+      return state === 'a' ? (
+        <a ref={ref} {...rest} />
+      ) : (
+        <button ref={ref} {...rest} />
+      )
+    }),
+  )
+
+  test.each([false, true])(
+    'the strategy follows a switch between <a> and <button> (forwarded ref: %s)',
+    (withRef) => {
+      const { preload, mount } = setup()
+      const userRef = React.createRef<HTMLElement>()
+      mount(
+        <SwapLink
+          to="/target"
+          preload="intent"
+          preloadDelay={0}
+          ref={withRef ? userRef : undefined}
+        >
+          Target
+        </SwapLink>,
+      )
+      act(() => swap())
+      const button = screen.getByRole('button', { name: 'Target' })
+      if (withRef) {
+        expect(userRef.current).toBe(button)
+      }
+      fireEvent.mouseEnter(button)
+      expect(preload).toHaveBeenCalledTimes(1)
+
+      act(() => swap())
+      fireEvent.mouseEnter(screen.getByRole('link', { name: 'Target' }))
+      expect(preload).toHaveBeenCalledTimes(2)
+    },
+  )
+
+  test('an element that renders after the Link mounts starts the strategy', () => {
+    const { preload, mount } = setup()
+    let show!: () => void
+    const LateLink = createLink(
+      React.forwardRef<any, any>(function Late(props, ref) {
+        const [shown, setShown] = React.useState(false)
+        show = () => setShown(true)
+        return shown ? <a ref={ref} {...props} /> : null
+      }),
+    )
+    mount(
+      <LateLink to="/target" preload="intent" preloadDelay={0}>
+        Target
+      </LateLink>,
+    )
+    act(() => show())
+    fireEvent.mouseEnter(screen.getByRole('link'))
+    expect(preload).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('invalid preload values are ignored', () => {
   test.each([
     ['true', true],

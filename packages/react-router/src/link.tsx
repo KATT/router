@@ -212,11 +212,19 @@ export function useLinkProps<
   // notifies the consumer) only when their ref changes, not on every render.
   // A cleanup returned by a consumer callback is passed through to React.
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const innerRef = React.useRef<Element>(null)
+  const innerRef: LinkRef = React.useRef<Element>(null)
+  // An element that replaced the one the running strategy started with, eg.
+  // a `createLink` component that switched elements: the strategy restarts
+  // with it.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const [swapped, setSwapped] = React.useState<Element>()
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const mergedRef = React.useCallback(
     (element: Element | null) => {
       innerRef.current = element
+      if (element && innerRef.s !== undefined && innerRef.s !== element) {
+        setSwapped(element)
+      }
       if (typeof forwardedRef === 'function') {
         return forwardedRef(element)
       }
@@ -350,6 +358,10 @@ export function useLinkProps<
       ? false
       : (userPreload ?? router.options.defaultPreload)
 
+  // The strategy preloads the latest destination, so a re-render that keeps
+  // the href (eg. an inline `search` function) doesn't restart it.
+  innerRef.d = dest
+
   // Preloading is up to a strategy: it listens to or observes the element
   // itself and returns a cleanup. A string goes through `preloadString`, which
   // loads the built-in strategies on demand.
@@ -358,12 +370,17 @@ export function useLinkProps<
     const strategy =
       typeof preload === 'string' ? preloadString(preload) : preload
     if (typeof strategy === 'function') {
-      return strategy(
+      innerRef.s = innerRef.current
+      const stop = strategy(
         router,
         innerRef,
-        () => preloadLink(router, dest),
+        () => preloadLink(router, innerRef.d),
         userPreloadDelay,
       )
+      return () => {
+        innerRef.s = undefined
+        stop?.()
+      }
     }
     if (process.env.NODE_ENV !== 'production' && preload) {
       console.warn(
@@ -371,10 +388,10 @@ export function useLinkProps<
       )
     }
     return undefined
-  }, [router, dest, preload, innerRef, userPreloadDelay])
+  }, [router, href, preload, innerRef, userPreloadDelay, swapped])
 
   const props = collectElementProps(options, host)
-  props.ref = forwardedRef ? mergedRef : innerRef
+  props.ref = mergedRef
   // External links get no router behavior: element props pass through as given.
   if (externalLink) {
     props.href = externalLink
@@ -572,6 +589,14 @@ function getServerLinkProps(
     linkDisabled,
     host,
   )
+}
+
+// A Link's own ref also holds what its preload strategy reads after it
+// starts: the latest destination (`d`) and the element the strategy started
+// with (`s`, `undefined` while none runs).
+type LinkRef = React.RefObject<Element | null> & {
+  d?: unknown
+  s?: Element | null
 }
 
 export const composeHandlers = (
