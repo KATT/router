@@ -12,7 +12,8 @@ client), and the panel on the right logs every tRPC HTTP request.
 - `viewport-batch`: router preloading is off, and `useViewportBatchPreload`
   (`src/utils/viewport-preloader.ts`) takes over. One shared
   IntersectionObserver queues links as they enter the viewport and drops them
-  as they leave. Every change restarts a 100 ms timer. When it fires, every
+  as they leave. Every intersection change, scroll and resize restarts a
+  150 ms timer, so it only fires once the page has settled. When it fires, every
   queued link calls `router.preloadRoute()` in the same tick, so their loaders'
   tRPC queries go out in one request.
 

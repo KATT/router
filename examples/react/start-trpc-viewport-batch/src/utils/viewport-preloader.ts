@@ -2,11 +2,12 @@ import * as React from 'react'
 
 /**
  * One IntersectionObserver for every link. A link that enters the viewport is
- * queued, one that leaves is dropped, and every change restarts the timer.
- * When it fires, all queued links preload in the same tick, so tRPC's batch
- * link sends their loaders' calls in one request.
+ * queued and one that leaves is dropped. The timer restarts on every
+ * intersection change and on every scroll or resize, so it only fires once the
+ * page has settled. Then all queued links preload in the same tick, so tRPC's
+ * batch link sends their loaders' calls in one request.
  */
-function createViewportPreloader({ delay = 100, rootMargin = '100px' } = {}) {
+function createViewportPreloader({ delay = 150, rootMargin = '100px' } = {}) {
   const preloads = new Map<Element, () => void>()
   const queue = new Set<Element>()
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -21,6 +22,10 @@ function createViewportPreloader({ delay = 100, rootMargin = '100px' } = {}) {
     clearTimeout(timer)
     timer = queue.size ? setTimeout(flush, delay) : undefined
   }
+
+  // Capture, so scrolling inside any container counts, not only the page
+  document.addEventListener('scroll', restart, { capture: true, passive: true })
+  window.addEventListener('resize', restart, { passive: true })
 
   const observer = new IntersectionObserver(
     (entries) => {
