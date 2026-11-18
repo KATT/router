@@ -1,6 +1,13 @@
 import type { AnyRouter } from '../router'
 
 /**
+ * The strings `preload` takes. Each runs its built-in strategy with default
+ * options, loaded on demand by `loadPreloadStrategy`.
+ * @experimental
+ */
+export type PreloadMode = 'intent' | 'viewport' | 'render'
+
+/**
  * What a strategy gets for one Link on the client.
  * @experimental
  */

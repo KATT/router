@@ -442,6 +442,7 @@ describe('strategies attach only the listeners they need', () => {
 
   test.each([
     ['viewportPreload()', viewportPreload()],
+    ["'viewport'", 'viewport'],
     ['batchedViewportPreload()', 'batch'],
   ] as const)('%s: a click listener per link', async (_, preload) => {
     const { added, removed } = await linkListeners(preload)
@@ -449,10 +450,13 @@ describe('strategies attach only the listeners they need', () => {
     expect(removed).toEqual(['click', 'click', 'click'])
   })
 
-  test('intentPreload(): hover, focus, touch and click', async () => {
-    const { added, removed } = await linkListeners(intentPreload())
+  test.each([
+    ['intentPreload()', intentPreload()],
+    ["'intent'", 'intent'],
+  ] as const)('%s: hover, focus, touch and click', async (_, preload) => {
+    const { added, removed } = await linkListeners(preload)
     const perLink = [
-      'mouseenter',
+      'mouseover',
       'focusin',
       'mouseleave',
       'focusout',
@@ -465,8 +469,7 @@ describe('strategies attach only the listeners they need', () => {
 
   test.each([
     ['renderPreload()', renderPreload()],
-    ["'intent'", 'intent'],
-    ["'viewport'", 'viewport'],
+    ["'render'", 'render'],
   ] as const)('%s: none', async (_, preload) => {
     const { added, removed } = await linkListeners(preload)
     expect(added).toEqual([])

@@ -129,7 +129,14 @@ In React, `preload` and `defaultPreload` also take a strategy, which decides whe
 | `'viewport'` | `viewportPreload({ delay, rootMargin })` |
 | `'render'`   | `renderPreload()`                        |
 
-Links run the strings with their own built-in code, so strategy code only ends up in your bundle when you import one.
+In React, the strings load their code lazily. Links don't ship any preload code: the first link that uses a string starts loading the built-in strategies as a separate chunk, and links start them once it has loaded. Later links start at once. So:
+
+- If no link uses a string, the chunk is never loaded.
+- A string costs one extra small request after the page loads.
+- Until that chunk has loaded, string links don't preload: a hover in that window is missed (the next one works).
+- The strings listen to the link's element directly, like any strategy. A `preventDefault()` in your own `onMouseEnter`, `onFocus` or `onTouchStart` no longer stops the preload.
+
+Strategy code you import ships in your bundle as usual.
 
 For a delay, a link's own `preloadDelay` wins, then the options passed to the strategy, then `defaultPreloadDelay`. `rootMargin` defaults to `'100px'`. The same options always give the same strategy, so creating one inline in render is fine. To use the same options across the app, create the strategy once and use it everywhere:
 

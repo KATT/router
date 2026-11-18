@@ -114,6 +114,7 @@ export type {
   IntentPreloadOptions,
   LinkPreloader,
   PreloadLink,
+  PreloadMode,
   PreloadOption,
   PreloadStrategy,
   ViewportPreloadOptions,

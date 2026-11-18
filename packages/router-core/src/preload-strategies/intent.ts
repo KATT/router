@@ -27,8 +27,13 @@ export const intentPreload =
         link,
         delayOf(router, link, options.delay),
       )
-      const listeners: Record<string, () => void> = {
-        mouseenter: start,
+      const listeners: Record<string, (event: Event) => void> = {
+        // Like React's `onMouseEnter`: a `mouseover` from outside the link
+        mouseover: (event) => {
+          if (!element.contains((event as MouseEvent).relatedTarget as Node)) {
+            start()
+          }
+        },
         focusin: start,
         mouseleave: cancel,
         focusout: cancel,

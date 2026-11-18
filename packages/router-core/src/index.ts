@@ -308,7 +308,9 @@ export {
   batchedViewportPreload,
   createPreloadStrategy,
   intentPreload,
+  loadPreloadStrategy,
   renderPreload,
+  startLinkPreload,
   viewportPreload,
 } from './preload-strategies/index'
 export type {
@@ -316,6 +318,7 @@ export type {
   IntentPreloadOptions,
   LinkPreloader,
   PreloadLink,
+  PreloadMode,
   PreloadOption,
   PreloadStrategy,
   ViewportPreloadOptions,

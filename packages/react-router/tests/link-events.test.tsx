@@ -126,7 +126,9 @@ test.each(['https://other.example/', 'javascript:blocked()'])(
   },
 )
 
-test.each(['onClick', 'onFocus', 'onMouseEnter', 'onTouchStart'] as const)(
+// Preload strategies listen to the element itself, so only the click handler
+// composes with the caller's.
+test.each(['onClick'] as const)(
   '%s respects cancellation before and after the user handler',
   (eventName) => {
     const router = createRouter({
