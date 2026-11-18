@@ -9,7 +9,7 @@ import {
   vi,
 } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { loadPreloadStrategy } from '@tanstack/router-core'
+import { loadPreloadStrings } from '@tanstack/router-core/preload-string'
 import {
   Link,
   RouterProvider,
@@ -32,7 +32,7 @@ import type {
 // String modes load their strategies on demand: load them up front, so
 // events fired right after a render reach them.
 beforeAll(async () => {
-  await loadPreloadStrategy('intent')
+  await loadPreloadStrings()
 })
 
 // One callback per observed element, so tests can scroll links independently.
@@ -316,11 +316,31 @@ describe('strategies by import work like their strings', () => {
 
   test('same options give the same strategy', () => {
     expect(batchedViewportPreload()).toBe(batchedViewportPreload())
+    expect(batchedViewportPreload({ rootMargin: '1px', delay: 2 })).toBe(
+      batchedViewportPreload({ delay: 2, rootMargin: '1px' }),
+    )
+    // Built-ins key by the options as written, which is enough for a call
+    // inline in render
+    expect(intentPreload()).toBe(intentPreload())
+    expect(renderPreload()).toBe(renderPreload())
     expect(intentPreload({ delay: 1 })).toBe(intentPreload({ delay: 1 }))
     expect(viewportPreload({ rootMargin: '1px', delay: 2 })).toBe(
-      viewportPreload({ delay: 2, rootMargin: '1px' }),
+      viewportPreload({ rootMargin: '1px', delay: 2 }),
     )
     expect(intentPreload({ delay: 1 })).not.toBe(intentPreload({ delay: 2 }))
+  })
+
+  test('an inline intentPreload({ delay }) keeps a pending preload across re-renders', async () => {
+    const { preloads, links } = await setup({
+      inlinePreload: () => intentPreload({ delay: 30 }),
+    })
+    fireEvent.mouseEnter(links.a)
+    await vi.advanceTimersByTimeAsync(20)
+    // A re-render calls intentPreload({ delay: 30 }) again: same strategy, so
+    // the Link doesn't restart it and the timer keeps running
+    fireEvent.click(screen.getByRole('button', { name: 'rerender' }))
+    await vi.advanceTimersByTimeAsync(10)
+    expect(preloads.map(([id]) => id)).toEqual(['a'])
   })
 
   test('an inline batchedViewportPreload() on each link shares one batch', async () => {

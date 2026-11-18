@@ -6,11 +6,11 @@ import {
   functionalUpdate,
   getUrlScheme,
   isDangerousProtocol,
-  loadPreloadStrategy,
   preloadWarning,
   removeTrailingSlash,
 } from '@tanstack/router-core'
 import { isServer } from '@tanstack/router-core/isServer'
+import { preloadString } from '@tanstack/router-core/preload-string'
 import { useRouter } from './useRouter'
 import { createLinkScope, matchContext } from './matchContext'
 
@@ -20,7 +20,6 @@ import type {
   Constrain,
   LinkOptions,
   ParsedLocation,
-  PreloadStrategy,
   RegisteredRouter,
   RoutePaths,
 } from '@tanstack/router-core'
@@ -351,36 +350,20 @@ export function useLinkProps<
       : (userPreload ?? router.options.defaultPreload)
 
   // Preloading is up to a strategy: it listens to or observes the element
-  // itself and returns a cleanup. A string is a built-in strategy, loaded on
-  // demand; a Link that unmounts before it loads starts nothing.
+  // itself and returns a cleanup. A string goes through
+  // `@tanstack/router-core/preload-string`, which loads the built-in
+  // strategies on demand, or, in the bundler plugin's strict mode, is a stub.
   // eslint-disable-next-line react-hooks/rules-of-hooks
   React.useEffect(() => {
-    if (!preload) {
-      return
+    if (preload) {
+      return (typeof preload === 'string' ? preloadString(preload) : preload)(
+        router,
+        innerRef,
+        () => preloadLink(router, dest),
+        userPreloadDelay,
+      )
     }
-    let active = true
-    let cleanup: (() => void) | void
-    const start = (strategy: PreloadStrategy) => {
-      if (active) {
-        cleanup = strategy(
-          router,
-          innerRef,
-          () => preloadLink(router, dest),
-          userPreloadDelay,
-        )
-      }
-    }
-    const strategy =
-      typeof preload === 'string' ? loadPreloadStrategy(preload) : preload
-    if (typeof strategy === 'function') {
-      start(strategy)
-    } else {
-      strategy.then(start, console.warn)
-    }
-    return () => {
-      active = false
-      cleanup?.()
-    }
+    return undefined
   }, [router, dest, preload, innerRef, userPreloadDelay])
 
   const props = collectElementProps(options, host)

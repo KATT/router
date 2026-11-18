@@ -1,6 +1,12 @@
 import type { AnyRouter } from '../router'
 
 /**
+ * A `preload` string: the name of a built-in strategy.
+ * @experimental
+ */
+export type PreloadMode = 'intent' | 'viewport' | 'render'
+
+/**
  * What a strategy gets for one Link on the client.
  * @experimental
  */
@@ -24,7 +30,8 @@ export interface PreloadLink {
 export type LinkPreloader = (link: PreloadLink) => (() => void) | void
 
 /**
- * Decides when Links preload. Make one with `createPreloadStrategy`.
+ * Decides when Links preload. Make one with `createPreloadStrategy`, or use
+ * a built-in one: `intentPreload()`, `viewportPreload()` or `renderPreload()`.
  *
  * A Link calls it in an effect, on the client, with its router, its own ref,
  * a function that preloads its destination and its own `preloadDelay`, and

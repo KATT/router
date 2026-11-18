@@ -11,7 +11,7 @@ import {
   useQuery,
 } from '@tanstack/react-query'
 import { afterEach, beforeAll, expect, onTestFinished, test, vi } from 'vitest'
-import { loadPreloadStrategy } from '@tanstack/router-core'
+import { loadPreloadStrings } from '@tanstack/router-core/preload-string'
 import {
   Link,
   Outlet,
@@ -26,7 +26,7 @@ import {
 // String modes load their strategies on demand: load them up front, so
 // events fired right after a render reach them.
 beforeAll(async () => {
-  await loadPreloadStrategy('intent')
+  await loadPreloadStrings()
 })
 
 afterEach(cleanup)

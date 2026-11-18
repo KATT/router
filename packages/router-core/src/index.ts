@@ -308,7 +308,6 @@ export {
   batchedViewportPreload,
   createPreloadStrategy,
   intentPreload,
-  loadPreloadStrategy,
   renderPreload,
   viewportPreload,
 } from './preload-strategies/index'

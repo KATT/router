@@ -1,5 +1,4 @@
-import { delayedPreload } from './delay'
-import { createPreloadStrategy, delayOf } from './shared'
+import { builtin, delayed } from './builtin'
 
 /** @experimental */
 export interface IntentPreloadOptions {
@@ -14,38 +13,37 @@ export interface IntentPreloadOptions {
 /**
  * `'intent'`: focus or hover preloads after the delay, and leaving or clicking
  * first cancels it. Touch preloads at once.
+ *
+ * The same options (or none) give the same strategy, so calling it inline in
+ * render is fine.
  * @experimental
  */
-export const intentPreload =
-  /* @__PURE__ */ createPreloadStrategy<IntentPreloadOptions>(
-    (options, router) => (link) => {
-      const { element } = link
-      if (!element) {
-        return
-      }
-      const { start, cancel } = delayedPreload(
-        link,
-        delayOf(router, link, options.delay),
-      )
-      const listeners: Record<string, () => void> = {
-        // Like React's `onMouseEnter`, which listens to `mouseover`. It
-        // bubbles from children, but a pending timer is kept.
-        mouseover: start,
-        focusin: start,
-        mouseleave: cancel,
-        focusout: cancel,
-        touchstart: link.preload,
-        // Before the click navigates
-        click: cancel,
-      }
+export const intentPreload = /* @__PURE__ */ builtin<IntentPreloadOptions>(
+  (options) => (router, ref, preload, delay) => {
+    const element = ref.current
+    if (!element) {
+      return
+    }
+    const [start, cancel] = delayed(router, preload, delay ?? options.delay)
+    const listeners: Record<string, () => void> = {
+      // Like React's `onMouseEnter`, which listens to `mouseover`. It
+      // bubbles from children, but a pending timer is kept.
+      mouseover: start,
+      focusin: start,
+      mouseleave: cancel,
+      focusout: cancel,
+      touchstart: preload,
+      // Before the click navigates
+      click: cancel,
+    }
+    for (const type in listeners) {
+      element.addEventListener(type, listeners[type]!, { passive: true })
+    }
+    return () => {
       for (const type in listeners) {
-        element.addEventListener(type, listeners[type]!, { passive: true })
+        element.removeEventListener(type, listeners[type]!)
       }
-      return () => {
-        for (const type in listeners) {
-          element.removeEventListener(type, listeners[type]!)
-        }
-        cancel()
-      }
-    },
-  )
+      cancel()
+    }
+  },
+)

@@ -1,5 +1,8 @@
-import { viewportPreload as viewportPreload2 } from '@tanstack/react-router'
-import { Link, intentPreload as intent } from '@tanstack/react-router'
+import {
+  Link,
+  intentPreload as intent,
+  viewportPreload as viewportPreload2,
+} from '@tanstack/react-router'
 import type { viewportPreload as ViewportType } from '@tanstack/react-router'
 // Already taken: the import gets another name
 const viewportPreload = 'not a strategy'

@@ -145,14 +145,37 @@ export function compilePreloadStrings(opts: {
     ([name, local]) => !findImportedStrategy(ast.program, name, local),
   )
   if (added.length) {
-    ast.program.body.unshift(
-      t.importDeclaration(
-        added.map(([name, local]) =>
-          t.importSpecifier(t.identifier(local.name), t.identifier(name)),
-        ),
-        t.stringLiteral(STRATEGIES_PACKAGE),
-      ),
+    const specifiers = added.map(([name, local]) =>
+      t.importSpecifier(t.identifier(local.name), t.identifier(name)),
     )
+    // Into an import the file has, else after its imports: a new import
+    // first would load the router before the file's other imports, which
+    // changes the order of modules in the bundle
+    const { body } = ast.program
+    const existing = body.find(
+      (node): node is t.ImportDeclaration =>
+        t.isImportDeclaration(node) &&
+        node.source.value === STRATEGIES_PACKAGE &&
+        node.importKind !== 'type' &&
+        !node.specifiers.some((specifier) =>
+          t.isImportNamespaceSpecifier(specifier),
+        ),
+    )
+    if (existing) {
+      existing.specifiers.push(...specifiers)
+    } else {
+      let after = 0
+      body.forEach((node, index) => {
+        if (t.isImportDeclaration(node)) {
+          after = index + 1
+        }
+      })
+      body.splice(
+        after,
+        0,
+        t.importDeclaration(specifiers, t.stringLiteral(STRATEGIES_PACKAGE)),
+      )
+    }
   }
 
   return generateFromAst(ast, {

@@ -22,10 +22,8 @@ import {
 } from '@testing-library/react'
 
 import { z } from 'zod'
-import {
-  loadPreloadStrategy,
-  trailingSlashOptions,
-} from '@tanstack/router-core'
+import { trailingSlashOptions } from '@tanstack/router-core'
+import { loadPreloadStrings } from '@tanstack/router-core/preload-string'
 import {
   Link,
   Outlet,
@@ -64,7 +62,7 @@ import type { RouterHistory } from '../src'
 // String modes load their strategies on demand: load them up front, so
 // events fired right after a render reach them.
 beforeAll(async () => {
-  await loadPreloadStrategy('intent')
+  await loadPreloadStrings()
 })
 
 const ioObserveMock = vi.fn()

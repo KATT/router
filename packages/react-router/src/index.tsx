@@ -25,7 +25,6 @@ export {
   batchedViewportPreload,
   createPreloadStrategy,
   intentPreload,
-  loadPreloadStrategy,
   renderPreload,
   viewportPreload,
 } from '@tanstack/router-core'

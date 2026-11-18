@@ -131,7 +131,7 @@ In React, `preload` and `defaultPreload` also take a strategy, which decides whe
 
 Links don't have their own code for the strings: a string loads its strategy on demand. See [Strings Load Their Strategy On Demand](#strings-load-their-strategy-on-demand).
 
-For a delay, a link's own `preloadDelay` wins, then the options passed to the strategy, then `defaultPreloadDelay`. `rootMargin` defaults to `'100px'`. The same options always give the same strategy, so creating one inline in render is fine. To use the same options across the app, create the strategy once and use it everywhere:
+For a delay, a link's own `preloadDelay` wins, then the options passed to the strategy, then `defaultPreloadDelay`. `rootMargin` defaults to `'100px'`. The same options always give the same strategy, so creating one inline in render is fine (for the built-ins, the same options written in the same key order). To use the same options across the app, create the strategy once and use it everywhere:
 
 ```tsx
 export const batched = batchedViewportPreload({ delay: 150 })
@@ -145,7 +145,7 @@ const router = createRouter({
 <Link to="/posts" preload={batched} />
 ```
 
-Write your own with `createPreloadStrategy`. It's started once per router with the options it's called with, and returns what runs for each link on the client:
+The built-in strategies are small: they keep no state between links, so they don't go through `createPreloadStrategy`, and an app ships only the ones it imports. Write your own with `createPreloadStrategy`. It's started once per router with the options it's called with, and returns what runs for each link on the client:
 
 ```tsx
 import { createPreloadStrategy } from '@tanstack/react-router'
@@ -214,6 +214,26 @@ const link = <Link to="/posts" preload={intentPreload()} />
 - It only looks at your own files that import from `@tanstack/react-router` or `@tanstack/react-start`, not at `node_modules`.
 - Strings it can't see as literals, such as `preload={mode}`, strings from a library, or options built at run time, still load their strategy on demand. That's why the on-demand chunk is always emitted: the build can't prove that no string reaches a Link.
 - It's for React only, and the option is in `tanstackRouter()`. TanStack Start's plugin doesn't pass it on yet.
+
+#### Strict mode
+
+> **Experimental:** This is experimental and subject to change.
+
+`compilePreloadStrings: 'strict'` rewrites the strings the same way, and is also your promise that every `preload` string in your app is a literal the plugin can see. In return, Links ship no code to load the strategies on demand: no on-demand chunk, no dynamic import, nothing for strings but a check that warns.
+
+```ts
+tanstackRouter({
+  target: 'react',
+  experimental: { compilePreloadStrings: 'strict' },
+})
+```
+
+How it works: Links run strings through `@tanstack/react-router`'s dependency `@tanstack/router-core/preload-string`, which loads the strategies on demand. In strict mode the plugin aliases that module to `@tanstack/router-core/preload-string/strict`, a stub. The alias works in Vite (build and dev, including pre-bundled dependencies), webpack and Rspack.
+
+If you break the promise, the string does nothing:
+
+- A string that reaches a Link at runtime, such as `preload={mode}` or a string from a library, doesn't preload. In development it warns once per string; in production it's silent.
+- Use the strategy instead (`preload={mode === 'intent' ? intentPreload() : viewportPreload()}`), or turn strict mode off.
 
 ## Built-in Preloading, Freshness, and Retention
 

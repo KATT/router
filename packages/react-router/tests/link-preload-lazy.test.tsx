@@ -2,12 +2,6 @@ import React from 'react'
 import { cleanup, render, waitFor } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 import {
-  intentPreload,
-  loadPreloadStrategy,
-  renderPreload,
-  viewportPreload,
-} from '@tanstack/router-core'
-import {
   Link,
   RouterContextProvider,
   createMemoryHistory,
@@ -15,9 +9,10 @@ import {
   createRouter,
 } from '../src'
 
-// Each test file gets its own modules, so the string modes' strategies are
-// not loaded when this file starts. The tests run in order on purpose: the
-// first ones see the strategies before they load.
+// Without the bundler plugin's strict mode, Links load the strategies for
+// `preload` strings on demand. Each test file gets its own modules, so they
+// are not loaded when this file starts. The tests run in order on purpose:
+// the first one sees the strategies before they load.
 
 afterEach(cleanup)
 
@@ -45,8 +40,6 @@ test('a string-mode Link preloads once its strategy loads, one that unmounted fi
   render(dropped.link).unmount()
 
   // Rendering started the load; nothing preloads before it's done
-  const loading = loadPreloadStrategy('intent')
-  expect(loading).toBeInstanceOf(Promise)
   expect(kept.preload).not.toHaveBeenCalled()
 
   await waitFor(() =>
@@ -55,15 +48,6 @@ test('a string-mode Link preloads once its strategy loads, one that unmounted fi
     ),
   )
   expect(dropped.preload).not.toHaveBeenCalled()
-  // The strings are the strategies with default options: a string and its
-  // imported strategy are one strategy, started once per router
-  expect(await loading).toBe(intentPreload())
-})
-
-test('the strategies load once, then are there at once', () => {
-  expect(loadPreloadStrategy('intent')).toBe(intentPreload())
-  expect(loadPreloadStrategy('viewport')).toBe(viewportPreload())
-  expect(loadPreloadStrategy('render')).toBe(renderPreload())
 })
 
 test('once they are loaded, a string-mode Link starts at once', () => {
