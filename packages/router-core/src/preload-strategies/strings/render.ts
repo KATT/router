@@ -1,5 +1,3 @@
-import { renderPreload } from '../render'
-
-// What `'render'` stands for. Only `../lazy` imports this module, on demand,
-// so it is its own chunk.
-export const strategy = renderPreload()
+// What `'render'` stands for: `renderPreload()`. Only `../lazy` imports this
+// module, on demand, so it is its own chunk.
+export { render as strategy } from '../render'
