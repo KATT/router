@@ -1,14 +1,18 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import {
   Link,
   RouterProvider,
-  batchViewportPreloads,
+  batchedViewportPreload,
   createMemoryHistory,
   createRootRoute,
   createRoute,
   createRouter,
+  intentPreload,
+  renderPreload,
+  viewportPreload,
 } from '../src'
+import type { PreloadLink, PreloadOption, PreloadStrategy } from '../src'
 
 // One callback per observed element, so tests can scroll links independently.
 let observed: Map<Element, IntersectionObserverCallback>
@@ -45,7 +49,13 @@ afterEach(() => {
 
 const LINKS = ['a', 'b', 'c'] as const
 
-async function setup(options: { batch?: boolean } = {}) {
+async function setup(
+  options: { batch?: boolean; preload?: PreloadOption } = {},
+) {
+  // A link's own `preload` wins over the router's default
+  const linkPreload = options.batch
+    ? undefined
+    : (options.preload ?? 'viewport')
   const rootRoute = createRootRoute()
   const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
@@ -53,7 +63,7 @@ async function setup(options: { batch?: boolean } = {}) {
     component: () => (
       <>
         {LINKS.map((id) => (
-          <Link key={id} to="/$id" params={{ id }} preload="viewport">
+          <Link key={id} to="/$id" params={{ id }} preload={linkPreload}>
             {id}
           </Link>
         ))}
@@ -68,9 +78,7 @@ async function setup(options: { batch?: boolean } = {}) {
     routeTree: rootRoute.addChildren([indexRoute, postRoute]),
     history: createMemoryHistory(),
     defaultPreloadDelay: 50,
-    defaultPreloadViewportScheduler: options.batch
-      ? batchViewportPreloads()
-      : undefined,
+    defaultPreload: options.batch ? batchedViewportPreload() : undefined,
   })
 
   // The time each link's preload started, in link order.
@@ -105,10 +113,10 @@ async function setup(options: { batch?: boolean } = {}) {
     })
   }
 
-  return { preloads, scroll, view }
+  return { preloads, scroll, view, links }
 }
 
-describe('defaultPreloadViewportScheduler: batchViewportPreloads()', () => {
+describe('batchedViewportPreload()', () => {
   test('links in view preload together, once the delay passes after the last change', async () => {
     const { preloads, scroll } = await setup({ batch: true })
 
@@ -181,7 +189,7 @@ describe('defaultPreloadViewportScheduler: batchViewportPreloads()', () => {
     expect(preloads).toEqual([])
   })
 
-  test('without a scheduler, each link keeps its own timer', async () => {
+  test("preload='viewport' keeps one timer per link", async () => {
     const { preloads, scroll } = await setup()
 
     scroll('a', true)
@@ -193,5 +201,59 @@ describe('defaultPreloadViewportScheduler: batchViewportPreloads()', () => {
     await vi.advanceTimersByTimeAsync(30)
     expect(preloads.map(([id]) => id)).toEqual(['a', 'b'])
     expect(preloads[1]![1] - preloads[0]![1]).toBe(30)
+  })
+})
+
+describe('strategies by import work like their strings', () => {
+  test.each([['intent'], [intentPreload]] as const)(
+    'intent: %s',
+    async (preload) => {
+      const { preloads, links } = await setup({ preload })
+
+      fireEvent.mouseEnter(links.a)
+      fireEvent.mouseLeave(links.a)
+      fireEvent.focus(links.b)
+      await vi.advanceTimersByTimeAsync(49)
+      expect(preloads).toEqual([])
+      await vi.advanceTimersByTimeAsync(1)
+      expect(preloads.map(([id]) => id)).toEqual(['b'])
+
+      fireEvent.touchStart(links.c)
+      expect(preloads.map(([id]) => id)).toEqual(['b', 'c'])
+    },
+  )
+
+  test.each([['viewport'], [viewportPreload]] as const)(
+    'viewport: %s',
+    async (preload) => {
+      const { preloads, scroll, links } = await setup({ preload })
+
+      fireEvent.mouseEnter(links.b)
+      scroll('a', true)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(preloads.map(([id]) => id)).toEqual(['a'])
+    },
+  )
+
+  test.each([['render'], [renderPreload]] as const)(
+    'render: %s',
+    async (preload) => {
+      const { preloads } = await setup({ preload })
+      expect(preloads.map(([id]) => id)).toEqual(['a', 'b', 'c'])
+    },
+  )
+
+  test('a custom strategy decides on its own', async () => {
+    // Hover or focus preloads at once, and leaving doesn't cancel anything
+    const eager: PreloadStrategy = (link: PreloadLink) => ({
+      enter: link.preload,
+    })
+    const { preloads, links } = await setup({ preload: eager })
+
+    fireEvent.mouseEnter(links.a)
+    fireEvent.mouseLeave(links.a)
+    expect(preloads.map(([id]) => id)).toEqual(['a'])
+    fireEvent.touchStart(links.b)
+    expect(preloads.map(([id]) => id)).toEqual(['a'])
   })
 })

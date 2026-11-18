@@ -96,16 +96,15 @@ You can also set the `preloadDelay` prop on individual `<Link>` components to ov
 
 ### Batching Viewport Preloads
 
-By default, each viewport link has its own timer, so links that scroll into view at different times preload at different times. Pass `batchViewportPreloads()` as `defaultPreloadViewportScheduler` to share one timer per router instead:
+With `'viewport'`, each link has its own timer, so links that scroll into view at different times preload at different times. `batchedViewportPreload()` is a preload strategy that shares one timer between links instead:
 
 ```tsx
-import { batchViewportPreloads, createRouter } from '@tanstack/react-router'
+import { batchedViewportPreload, createRouter } from '@tanstack/react-router'
 
 const router = createRouter({
   // ...
-  defaultPreload: 'viewport',
+  defaultPreload: batchedViewportPreload(),
   defaultPreloadDelay: 100,
-  defaultPreloadViewportScheduler: batchViewportPreloads(),
 })
 ```
 
@@ -113,9 +112,22 @@ const router = createRouter({
 - Every time a link enters or leaves the viewport, the timer restarts with that link's `preloadDelay`. Every scroll (of the page or any container) and resize restarts it too, so nothing preloads until the page has settled.
 - When the timer fires, every queued link preloads in the same tick.
 
-This helps data layers that batch requests per tick, such as tRPC's batch links or DataLoader, send one request per screenful instead of one per link. A link that comes back into view is queued again, and the router's usual staleness rules decide whether its loaders run. Hover, focus, and touch preloading are not affected.
+This helps data layers that batch requests per tick, such as tRPC's batch links or DataLoader, send one request per screenful instead of one per link. A link that comes back into view is queued again, and the router's usual staleness rules decide whether its loaders run. Links that share one `batchedViewportPreload()` share one batch, so create it once.
 
-A scheduler is a function `(link, preload?, delay?) => void`. A link calls it with `preload` when it enters the viewport and without it when it leaves; both pass the link's delay. On unmount it is called with neither. You can write your own, for example to wait for `requestIdleCallback`.
+### Preload Strategies
+
+`preload` and `defaultPreload` also take a strategy: a function that decides when a link preloads. `'intent'`, `'viewport'` and `'render'` are `intentPreload`, `viewportPreload` and `renderPreload` by name, and you can import them instead of the strings. A strategy gets the link's element, its `preloadDelay` and a `preload()` function when the link mounts, and can return handlers for the link's events:
+
+```tsx
+import type { PreloadStrategy } from '@tanstack/react-router'
+
+// Hover or focus preloads at once, and leaving doesn't cancel it
+const eager: PreloadStrategy = (link) => ({ enter: link.preload })
+
+<Link to="/posts" preload={eager} />
+```
+
+The handlers are `enter` (focus or mouse enter), `leave` (blur or mouse leave), `touch`, `cancel` (a click, before it navigates) and `cleanup` (the link unmounts or its options change).
 
 ## Built-in Preloading, Freshness, and Retention
 

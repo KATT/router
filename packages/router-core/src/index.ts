@@ -304,8 +304,19 @@ export type {
 
 export { retainSearchParams, stripSearchParams } from './searchMiddleware'
 
-export { batchViewportPreloads } from './viewport-preload'
-export type { ViewportPreloadScheduler } from './viewport-preload'
+export {
+  batchedViewportPreload,
+  intentPreload,
+  renderPreload,
+  resolvePreloadStrategy,
+  viewportPreload,
+} from './preload-strategies'
+export type {
+  PreloadHandlers,
+  PreloadLink,
+  PreloadOption,
+  PreloadStrategy,
+} from './preload-strategies'
 
 export {
   defaultParseSearch,
