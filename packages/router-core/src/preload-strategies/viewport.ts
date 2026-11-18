@@ -18,7 +18,8 @@ export interface ViewportPreloadOptions {
 
 /**
  * `'viewport'`: each link has its own IntersectionObserver. Entering the
- * viewport preloads after the delay, and leaving first cancels it.
+ * viewport preloads after the delay, and leaving or clicking first cancels
+ * it.
  * @experimental
  */
 export const viewportPreload =
@@ -49,13 +50,13 @@ export const viewportPreload =
         { rootMargin: options.rootMargin ?? '100px' },
       )
       observer.observe(element)
-      return {
-        cancel,
-        cleanup: () => {
-          active = false
-          observer.disconnect()
-          cancel()
-        },
+      // A click cancels a pending preload before it navigates
+      element.addEventListener('click', cancel, { passive: true })
+      return () => {
+        active = false
+        observer.disconnect()
+        element.removeEventListener('click', cancel)
+        cancel()
       }
     },
   )

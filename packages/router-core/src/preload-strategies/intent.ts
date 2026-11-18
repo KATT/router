@@ -12,23 +12,38 @@ export interface IntentPreloadOptions {
 }
 
 /**
- * `'intent'`: focus or hover preloads after the delay, and leaving first
- * cancels it. Touch preloads at once.
+ * `'intent'`: focus or hover preloads after the delay, and leaving or clicking
+ * first cancels it. Touch preloads at once.
  * @experimental
  */
 export const intentPreload =
   /* @__PURE__ */ createPreloadStrategy<IntentPreloadOptions>(
     (options, router) => (link) => {
+      const { element } = link
+      if (!element) {
+        return
+      }
       const { start, cancel } = delayedPreload(
         link,
         delayOf(router, link, options.delay),
       )
-      return {
-        enter: start,
-        leave: cancel,
-        touch: link.preload,
-        cancel,
-        cleanup: cancel,
+      const listeners: Record<string, () => void> = {
+        mouseenter: start,
+        focusin: start,
+        mouseleave: cancel,
+        focusout: cancel,
+        touchstart: link.preload,
+        // Before the click navigates
+        click: cancel,
+      }
+      for (const type in listeners) {
+        element.addEventListener(type, listeners[type]!, { passive: true })
+      }
+      return () => {
+        for (const type in listeners) {
+          element.removeEventListener(type, listeners[type]!)
+        }
+        cancel()
       }
     },
   )

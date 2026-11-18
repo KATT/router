@@ -75,7 +75,8 @@ function createBatch(rootMargin: string) {
 
 /**
  * Like `'viewport'`, but links share one IntersectionObserver, queue and
- * timer. Entering the viewport queues a link and leaving drops it. The timer
+ * timer. Entering the viewport queues a link, and leaving or clicking drops
+ * it. The timer
  * restarts on every intersection change, scroll and resize, so it fires only
  * once the page has settled; then every queued link preloads in the same tick,
  * so data layers that batch per tick send one request.
@@ -97,9 +98,12 @@ export const batchedViewportPreload =
         }
         const shared = (batch ??= createBatch(options.rootMargin ?? '100px'))
         shared.add(element, link.preload, delayOf(router, link, options.delay))
-        return {
-          cancel: () => shared.drop(element),
-          cleanup: () => shared.remove(element),
+        // A click drops the link from the queue before it navigates
+        const drop = () => shared.drop(element)
+        element.addEventListener('click', drop, { passive: true })
+        return () => {
+          element.removeEventListener('click', drop)
+          shared.remove(element)
         }
       }
     },

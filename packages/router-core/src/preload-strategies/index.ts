@@ -8,12 +8,7 @@ export { createPreloadStrategy } from './shared'
 export type { BatchedViewportPreloadOptions } from './batched-viewport'
 export type { IntentPreloadOptions } from './intent'
 export type { ViewportPreloadOptions } from './viewport'
-export type {
-  LinkPreloader,
-  PreloadHandlers,
-  PreloadLink,
-  PreloadStrategy,
-} from './types'
+export type { LinkPreloader, PreloadLink, PreloadStrategy } from './types'
 
 /**
  * A `preload` option as Links and the router take it. Each string works like

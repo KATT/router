@@ -16,28 +16,12 @@ export interface PreloadLink {
 }
 
 /**
- * How a strategy reacts to events on the link's element. Every one is
- * optional.
+ * A strategy started for one router: called for each Link. It listens to or
+ * observes the link's element itself, and can return a cleanup that runs when
+ * the Link unmounts, or its options change and the strategy starts again.
  * @experimental
  */
-export interface PreloadHandlers {
-  /** Focus or mouse enter */
-  enter?: () => void
-  /** Blur or mouse leave */
-  leave?: () => void
-  /** Touch start */
-  touch?: () => void
-  /** A click on the link: drop anything pending */
-  cancel?: () => void
-  /** The Link unmounts, or its options change and the strategy starts again */
-  cleanup?: () => void
-}
-
-/**
- * A strategy started for one router: called for each Link.
- * @experimental
- */
-export type LinkPreloader = (link: PreloadLink) => PreloadHandlers | void
+export type LinkPreloader = (link: PreloadLink) => (() => void) | void
 
 /**
  * Decides when Links preload. Make one with `createPreloadStrategy`.

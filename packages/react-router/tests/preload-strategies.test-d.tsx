@@ -10,7 +10,6 @@ import {
 import type {
   AnyRouter,
   LinkPreloader,
-  PreloadHandlers,
   PreloadLink,
   PreloadOption,
   PreloadStrategy,
@@ -33,15 +32,18 @@ test('createPreloadStrategy types its stages from context', () => {
       expectTypeOf(options).toEqualTypeOf<{ onTouch?: boolean }>()
       expectTypeOf(router).toEqualTypeOf<AnyRouter>()
       expectTypeOf(link).toEqualTypeOf<PreloadLink>()
-      return { enter: link.preload }
+      link.element?.addEventListener('pointerenter', link.preload)
+      return () =>
+        link.element?.removeEventListener('pointerenter', link.preload)
     },
   )
   expectTypeOf(eager)
     .parameter(0)
     .toEqualTypeOf<{ onTouch?: boolean } | undefined>()
-  expectTypeOf<
-    ReturnType<LinkPreloader>
-  >().toEqualTypeOf<PreloadHandlers | void>()
+  // A strategy returns only its cleanup
+  expectTypeOf<ReturnType<LinkPreloader>>().toEqualTypeOf<(() => void) | void>()
+  // @ts-expect-error not a cleanup
+  createPreloadStrategy(() => (link) => ({ enter: link.preload }))
 })
 
 test('preload options take strings and strategies only', () => {

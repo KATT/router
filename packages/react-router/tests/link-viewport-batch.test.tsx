@@ -372,7 +372,9 @@ describe('strategies by import work like their strings', () => {
     const started: Array<unknown> = []
     const eager = createPreloadStrategy<{ id?: string }>((_options, router) => {
       started.push(router)
-      return (link) => ({ enter: link.preload })
+      return (link) => {
+        link.element?.addEventListener('mouseenter', link.preload)
+      }
     })
     const { preloads, links } = await setup({
       inlinePreload: () => eager({ id: 'x' }),
@@ -389,27 +391,85 @@ describe('strategies by import work like their strings', () => {
     expect(started[0]).not.toBe(started[1])
   })
 
-  test('a custom strategy decides on its own', async () => {
-    // Hover or focus preloads at once, and leaving doesn't cancel anything
+  test('a custom strategy listens to the events it chooses and cleans up', async () => {
+    // Pointer enter preloads at once; nothing else does
     const cleanups: Array<Element | null> = []
-    const eager = createPreloadStrategy(() => (link: PreloadLink) => ({
-      enter: link.preload,
-      cleanup: () => cleanups.push(link.element),
-    }))
+    const eager = createPreloadStrategy(() => (link: PreloadLink) => {
+      const { element, preload } = link
+      element?.addEventListener('pointerenter', preload)
+      return () => {
+        element?.removeEventListener('pointerenter', preload)
+        cleanups.push(element)
+      }
+    })
     const { preloads, links, view } = await setup({ preload: eager() })
 
     fireEvent.mouseEnter(links.a)
-    fireEvent.mouseLeave(links.a)
-    expect(preloads.map(([id]) => id)).toEqual(['a'])
-    fireEvent.touchStart(links.b)
-    expect(preloads.map(([id]) => id)).toEqual(['a'])
-    fireEvent.focus(links.c)
-    expect(preloads.map(([id]) => id)).toEqual(['a', 'c'])
+    fireEvent.focus(links.a)
+    fireEvent.touchStart(links.a)
+    expect(preloads).toEqual([])
+    fireEvent.pointerEnter(links.b)
+    expect(preloads.map(([id]) => id)).toEqual(['b'])
 
-    // Unmounting cleans up and stops listening
+    // Unmounting runs each link's cleanup, which stops listening
     view.unmount()
     expect(cleanups).toEqual([links.a, links.b, links.c])
-    fireEvent.mouseEnter(links.a)
-    expect(preloads.map(([id]) => id)).toEqual(['a', 'c'])
+    fireEvent.pointerEnter(links.c)
+    expect(preloads.map(([id]) => id)).toEqual(['b'])
+  })
+})
+
+describe('strategies attach only the listeners they need', () => {
+  const linkListeners = async (preload: PreloadOption | 'batch') => {
+    const add = vi.spyOn(Element.prototype, 'addEventListener')
+    const remove = vi.spyOn(Element.prototype, 'removeEventListener')
+    const { links, view } = await setup(
+      preload === 'batch' ? { batch: true } : { preload },
+    )
+    const onLinks = (spy: typeof add) =>
+      spy.mock.calls
+        .filter((_, i) =>
+          Object.values(links).includes(spy.mock.contexts[i] as HTMLElement),
+        )
+        .map(([type]) => type)
+    const added = onLinks(add)
+    view.unmount()
+    const removed = onLinks(remove)
+    add.mockRestore()
+    remove.mockRestore()
+    return { added, removed }
+  }
+
+  test.each([
+    ['viewportPreload()', viewportPreload()],
+    ['batchedViewportPreload()', 'batch'],
+  ] as const)('%s: a click listener per link', async (_, preload) => {
+    const { added, removed } = await linkListeners(preload)
+    expect(added).toEqual(['click', 'click', 'click'])
+    expect(removed).toEqual(['click', 'click', 'click'])
+  })
+
+  test('intentPreload(): hover, focus, touch and click', async () => {
+    const { added, removed } = await linkListeners(intentPreload())
+    const perLink = [
+      'mouseenter',
+      'focusin',
+      'mouseleave',
+      'focusout',
+      'touchstart',
+      'click',
+    ]
+    expect(added).toEqual([...perLink, ...perLink, ...perLink])
+    expect(removed).toEqual(added)
+  })
+
+  test.each([
+    ['renderPreload()', renderPreload()],
+    ["'intent'", 'intent'],
+    ["'viewport'", 'viewport'],
+  ] as const)('%s: none', async (_, preload) => {
+    const { added, removed } = await linkListeners(preload)
+    expect(added).toEqual([])
+    expect(removed).toEqual([])
   })
 })

@@ -109,7 +109,7 @@ const router = createRouter({
 })
 ```
 
-- A link that enters the viewport is queued. A link that leaves before the flush is dropped.
+- A link that enters the viewport is queued. A link that leaves, or is clicked, before the flush is dropped.
 - Every intersection change, scroll (of the page or any container) and resize restarts the timer, so nothing preloads until the page has settled.
 - When the timer fires, every queued link preloads in the same tick.
 
@@ -150,16 +150,22 @@ Write your own with `createPreloadStrategy`. It's started once per router with t
 ```tsx
 import { createPreloadStrategy } from '@tanstack/react-router'
 
-// Hover or focus preloads at once, and leaving doesn't cancel it
+// Pointer enter preloads at once, and leaving doesn't cancel it
 export const eagerPreload = createPreloadStrategy<{ onTouch?: boolean }>(
-  (options, router) => (link) => ({
-    enter: link.preload,
-    touch: options.onTouch ? link.preload : undefined,
-  }),
+  (options) =>
+    ({ element, preload }) => {
+      if (!element) return
+      const events = options.onTouch
+        ? ['pointerenter', 'touchstart']
+        : ['pointerenter']
+      events.forEach((type) => element.addEventListener(type, preload))
+      return () =>
+        events.forEach((type) => element.removeEventListener(type, preload))
+    },
 )
 ```
 
-The router stage is where a strategy reads its options and keeps state its links share. The link stage gets the link's element, its own `preloadDelay` and a `preload()` function, and can return handlers: `enter` (focus or mouse enter), `leave` (blur or mouse leave), `touch`, `cancel` (a click) and `cleanup` (the link unmounts or its options change). The handlers listen to the link's element, so a strategy that uses them needs the link's ref attached.
+The router stage is where a strategy reads its options and keeps state its links share. The link stage gets `{ element, key, delay, preload }`: the link's element (`null` until its ref is attached), an object that stays the same for the link's whole life, its own `preloadDelay` and a function that preloads its destination now. It listens to or observes the element itself, with whatever events it needs, and can return a cleanup that runs when the link unmounts or its options change.
 
 ## Built-in Preloading, Freshness, and Retention
 
