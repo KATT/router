@@ -332,6 +332,16 @@ function createLinkProps(
 
   useIntersectionObserver(ref, enqueuePreload, preload)
 
+  if (process.env.NODE_ENV !== 'production') {
+    Solid.createEffect(() => {
+      if (typeof preload() === 'function') {
+        console.warn(
+          "Solid Links don't support preload strategies yet, so this Link doesn't preload: use 'intent', 'viewport' or 'render'",
+        )
+      }
+    })
+  }
+
   Solid.createEffect(() => {
     if (hasRenderFetched) {
       return

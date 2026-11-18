@@ -57,6 +57,7 @@ import {
 } from './rewrite'
 import { createRouterStores } from './stores'
 import type { SieveCache } from './sieve-cache'
+import type { PreloadOption } from './preload-strategies/index'
 import type { RouteInterpolation } from './path'
 import type {
   ProcessRouteTreeResult,
@@ -226,11 +227,13 @@ export interface RouterOptions<
    *
    * If `'viewport'`, routes will be preloaded by default when they are within the viewport.
    *
+   * A preload strategy, eg. `batchedViewportPreload()`, decides on its own (experimental, React only for now: Solid and Vue Links ignore it, with a development warning).
+   *
    * @default false
    * @link [API Docs](https://tanstack.com/router/latest/docs/framework/react/api/router/RouterOptionsType#defaultpreload-property)
    * @link [Guide](https://tanstack.com/router/latest/docs/framework/react/guide/preloading)
    */
-  defaultPreload?: false | 'intent' | 'viewport' | 'render'
+  defaultPreload?: PreloadOption
   /**
    * The delay in milliseconds before intent focus/hover and viewport preloading.
    * Touch intent preloads immediately.

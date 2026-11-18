@@ -22,6 +22,11 @@ export {
   retainSearchParams,
   stripSearchParams,
   createSerializationAdapter,
+  batchedViewportPreload,
+  createPreloadStrategy,
+  intentPreload,
+  renderPreload,
+  viewportPreload,
 } from '@tanstack/router-core'
 
 export type {
@@ -105,6 +110,14 @@ export type {
   SerializationAdapter,
   AnySerializationAdapter,
   SerializableExtensions,
+  BatchedViewportPreloadOptions,
+  IntentPreloadOptions,
+  LinkPreloader,
+  PreloadLink,
+  PreloadMode,
+  PreloadOption,
+  PreloadStrategy,
+  ViewportPreloadOptions,
 } from '@tanstack/router-core'
 
 export {
