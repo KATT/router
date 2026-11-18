@@ -1,4 +1,8 @@
-export { configSchema, getConfig } from './core/config'
+export {
+  configSchema,
+  getConfig,
+  getPreloadStringsOptions,
+} from './core/config'
 export { unpluginRouterGeneratorFactory } from './core/router-generator-plugin'
 export { createRouterPluginContext } from './core/router-plugin-context'
 export type {
@@ -7,6 +11,7 @@ export type {
   ConfigOutput,
   CodeSplittingOptions,
   DeletableNodes,
+  PreloadStringsOptions,
 } from './core/config'
 export type { RouterPluginContext } from './core/router-plugin-context'
 export {

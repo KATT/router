@@ -6,6 +6,7 @@ import {
   functionalUpdate,
   getUrlScheme,
   isDangerousProtocol,
+  loadPreloadString,
   preloadWarning,
   removeTrailingSlash,
 } from '@tanstack/router-core'
@@ -17,8 +18,10 @@ import type {
   ActiveOptions,
   AnyRouter,
   Constrain,
+  IntentTag,
   LinkOptions,
   ParsedLocation,
+  PreloadRef,
   RegisteredRouter,
   RoutePaths,
 } from '@tanstack/router-core'
@@ -204,27 +207,10 @@ export function useLinkProps<
   // 3. In client bundles, `isServer` is `false`, so the early return never executes
   // ==========================================================================
 
-  // The link's own ref: the element for the viewport observer and the holder
-  // of a pending intent timer. A forwarded ref is filled alongside it by one
-  // callback, memoized on the forwarded ref so React re-attaches it (and
-  // notifies the consumer) only when their ref changes, not on every render.
-  // A cleanup returned by a consumer callback is passed through to React.
+  // The link's own ref: the element its preload strategy watches, its
+  // identity for the strategy, and the holder of a pending intent timer.
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const innerRef: LinkRef = React.useRef<Element>(null)
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const mergedRef = React.useCallback(
-    (element: Element | null) => {
-      innerRef.current = element
-      if (typeof forwardedRef === 'function') {
-        return forwardedRef(element)
-      }
-      if (forwardedRef) {
-        forwardedRef.current = element
-      }
-      return undefined
-    },
-    [forwardedRef],
-  )
 
   const {
     activeOptions,
@@ -348,82 +334,110 @@ export function useLinkProps<
   const externalLink = isActive === undefined && href
   const linkDisabled = disabled || href === undefined
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const hasRenderFetched = React.useRef(false)
-
   const preload =
     options.reloadDocument || externalLink || linkDisabled
       ? false
       : (userPreload ?? router.options.defaultPreload)
-  const preloadDelay =
-    userPreloadDelay ?? router.options.defaultPreloadDelay ?? 0
 
-  // `preloadRoute` builds the location itself and only reads the options, so
-  // `dest` goes through as-is.
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const enqueuePreload = React.useCallback(
-    (e?: React.MouseEvent | React.FocusEvent | IntersectionObserverEntry) => {
-      const isIntersecting = (e as IntersectionObserverEntry | undefined)
-        ?.isIntersecting
-      if (!(isIntersecting ?? preload === 'intent')) {
-        if (isIntersecting === false) {
-          cancelPreload(innerRef)
-        }
-        return
-      }
+  // `'intent'`, and `intentPreload(options)` (its options as `i`), run here
+  // through the element's event props, so a handler that calls
+  // `preventDefault()` stops them, and React tells moves between the link's
+  // own children apart from entering and leaving it.
+  const intent =
+    preload === 'intent' ? {} : (preload as IntentTag | undefined | false)?.i
 
-      if (!preloadDelay) {
-        preloadLink(router, dest)
-        return
-      }
+  // Preloads the latest destination, so a re-render that keeps the href (eg.
+  // an inline `search` function) neither restarts the strategy nor drops a
+  // pending intent preload.
+  innerRef.d = dest
+  const preloadNow = () => preloadLink(router, innerRef.d)
 
-      innerRef.t ??= setTimeout(() => {
-        innerRef.t = undefined
-        preloadLink(router, dest)
-      }, preloadDelay)
-    },
-    [router, dest, innerRef, preload, preloadDelay],
-  )
-
-  // Preload side effects: `render` preloads once per link, `viewport` watches
-  // the element. The cleanup also cancels a pending intent timer.
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  React.useEffect(() => {
-    // Disabled preloading creates neither an observer nor an intent timer.
-    if (!preload) {
+  const enqueuePreload = () => {
+    const delay =
+      userPreloadDelay ?? intent!.delay ?? router.options.defaultPreloadDelay
+    if (!delay) {
+      preloadNow()
       return
     }
-    if (preload === 'render' && !hasRenderFetched.current) {
-      hasRenderFetched.current = true
-      preloadLink(router, dest)
-    }
-    let active = true
-    let observer: IntersectionObserver | undefined
-    if (
-      preload === 'viewport' &&
-      innerRef.current &&
-      typeof IntersectionObserver === 'function'
-    ) {
-      observer = new IntersectionObserver(
-        (entries) => {
-          // A queued observer notification can arrive after disconnect().
-          if (active) {
-            enqueuePreload(entries.pop())
-          }
-        },
-        { rootMargin: '100px' },
-      )
-      observer.observe(innerRef.current)
-    }
-    return () => {
-      active = false
-      observer?.disconnect()
-      cancelPreload(innerRef)
-    }
-  }, [router, dest, preload, enqueuePreload, innerRef])
+    innerRef.t ??= setTimeout(() => {
+      innerRef.t = undefined
+      preloadNow()
+    }, delay)
+  }
+
+  // Any other preload is up to a strategy: it listens to or observes the
+  // element itself and returns a cleanup. A string stands for a built-in
+  // strategy, which `loadPreloadString` loads on demand. The element's ref
+  // callback runs it: it starts with an element and stops when the element
+  // detaches, on unmount, for a new element (eg. a `createLink` component that
+  // switched elements) and when a new href or preload option makes a new
+  // callback. Stopping also cancels a pending intent preload.
+  // A forwarded ref is filled alongside, and a cleanup returned by a consumer
+  // callback is passed through to React.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const mergedRef = React.useCallback(
+    (element: Element | null) => {
+      // React 18 detaches a callback ref by calling it with `null`, and so
+      // does React 19 unless the callback returned a cleanup
+      const stop = () => {
+        innerRef.s?.()
+        innerRef.s = undefined
+        cancelPreload(innerRef)
+      }
+      stop()
+      innerRef.current = element
+      const start = () => {
+        const strategy =
+          typeof preload === 'string' ? loadPreloadString(preload) : preload
+        if (typeof strategy === 'function') {
+          innerRef.s = strategy(
+            router,
+            // Attached: `current` is the element
+            innerRef as PreloadRef,
+            preloadNow,
+            userPreloadDelay,
+          )
+        } else if (strategy instanceof Promise) {
+          // Starts once its strategy loads, unless the element detached first
+          const waiting = (innerRef.s = () => {})
+          strategy.then(
+            () => innerRef.s === waiting && start(),
+            () => {},
+          )
+        } else if (process.env.NODE_ENV !== 'production' && preload) {
+          console.warn(
+            `Invalid preload ${String(preload)}: use 'intent', 'viewport', 'render', false or a preload strategy`,
+          )
+        }
+      }
+      if (element && !intent) {
+        start()
+      }
+      if (typeof forwardedRef === 'function') {
+        // React 19 callback refs may return a cleanup
+        const cleanup = forwardedRef(element) as unknown as
+          | (() => void)
+          | undefined
+        return (
+          cleanup &&
+          (() => {
+            stop()
+            cleanup()
+          })
+        )
+      }
+      if (forwardedRef) {
+        forwardedRef.current = element
+      }
+      return undefined
+    },
+    // A new href restarts the strategy, as a new destination may need it
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [forwardedRef, router, href, preload, userPreloadDelay],
+  )
 
   const props = collectElementProps(options, host)
-  props.ref = forwardedRef ? mergedRef : innerRef
+  props.ref = mergedRef
   // External links get no router behavior: element props pass through as given.
   if (externalLink) {
     props.href = externalLink
@@ -448,6 +462,7 @@ export function useLinkProps<
     ) {
       e.preventDefault()
       cancelPreload(innerRef)
+      innerRef.c?.()
 
       // The current options carry the navigation controls; `dest` only
       // contributes the location the link displays. Navigation builds again
@@ -456,24 +471,15 @@ export function useLinkProps<
     }
   }
 
-  const handleTouchStart = () => {
-    if (preload === 'intent') {
-      preloadLink(router, dest)
-    }
-  }
-
-  const handleLeave = () => {
-    if (preload === 'intent') {
-      cancelPreload(innerRef)
-    }
-  }
-
   props.onClick = composeHandlers(onClick, handleClick)
-  props.onBlur = composeHandlers(onBlur, handleLeave)
-  props.onFocus = composeHandlers(onFocus, enqueuePreload)
-  props.onMouseEnter = composeHandlers(onMouseEnter, enqueuePreload)
-  props.onMouseLeave = composeHandlers(onMouseLeave, handleLeave)
-  props.onTouchStart = composeHandlers(onTouchStart, handleTouchStart)
+  if (intent) {
+    const handleLeave = () => cancelPreload(innerRef)
+    props.onBlur = composeHandlers(onBlur, handleLeave)
+    props.onFocus = composeHandlers(onFocus, enqueuePreload)
+    props.onMouseEnter = composeHandlers(onMouseEnter, enqueuePreload)
+    props.onMouseLeave = composeHandlers(onMouseLeave, handleLeave)
+    props.onTouchStart = composeHandlers(onTouchStart, preloadNow)
+  }
   return applyLinkState(props, options, isActive, href, linkDisabled, host)
 }
 
@@ -640,9 +646,14 @@ function getServerLinkProps(
   )
 }
 
-// A Link's own ref also holds its pending intent preload timer.
+// A Link's own ref also holds the latest destination it preloads (`d`), the
+// cleanup of the running strategy (`s`) and a pending intent preload's timer
+// (`t`).
 type LinkRef = React.RefObject<Element | null> & {
+  d?: unknown
+  s?: (() => void) | void
   t?: ReturnType<typeof setTimeout>
+  c?: () => void
 }
 const cancelPreload = (ref: LinkRef) => {
   clearTimeout(ref.t)
