@@ -14,9 +14,9 @@ import {
 import type * as Core from '@tanstack/router-core'
 import type { PreloadOption } from '../src'
 
-// String modes load the built-in strategies' chunk on demand. These tests
-// run in order: the chunk loads once per file, and the first tests run
-// before it is loaded. It can't load while a test runs synchronously.
+// Each string mode loads its strategy's chunk on demand. These tests run in
+// order: a chunk loads once per file, and the first tests run before any is
+// loaded. A chunk can't load while a test runs synchronously.
 vi.mock('@tanstack/router-core', async (importOriginal) => {
   const core = await importOriginal<typeof Core>()
   return { ...core, preloadString: vi.fn(core.preloadString) }
@@ -74,7 +74,7 @@ const loadChunk = async () => {
   await act(() => loadPreloadStrings())
 }
 
-test('server rendering with string modes neither runs preloadString nor loads the chunk', () => {
+test('server rendering with string modes neither runs preloadString nor loads a chunk', () => {
   const { wrap, preload } = setup(true)
   const html = renderToString(
     wrap(
@@ -122,7 +122,7 @@ test('disabled, external and reloadDocument Links start no strategy and load not
   expect(preload).not.toHaveBeenCalled()
 })
 
-test('Links that mount while the chunk loads follow option changes, and only mounted ones start', async () => {
+test('Links that mount while their chunks load follow option changes, and only mounted ones start', async () => {
   const add = vi.spyOn(Element.prototype, 'addEventListener')
   const { wrap, preload } = setup()
   const preloaded = () =>
@@ -133,7 +133,7 @@ test('Links that mount while the chunk loads follow option changes, and only mou
     to?: string
     preloadDelay?: number
   }
-  // Each Link's options can change while the chunk loads
+  // Each Link's options can change while its chunk loads
   const setters: Record<string, (options: Options) => void> = {}
   function Changing({ id, initial }: { id: string; initial: Options }) {
     const [options, setOptions] = React.useState(initial)

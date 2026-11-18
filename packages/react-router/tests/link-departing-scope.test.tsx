@@ -9,7 +9,8 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, test, vi } from 'vitest'
+import { loadPreloadStrings } from '@tanstack/router-core'
 import {
   Link,
   Outlet,
@@ -21,6 +22,12 @@ import {
   createRouter,
   redirect,
 } from '../src'
+
+// String modes load their strategies on demand: load them up front, so
+// events fired right after a render reach them.
+beforeAll(async () => {
+  await loadPreloadStrings()
+})
 
 afterEach(() => {
   cleanup()
