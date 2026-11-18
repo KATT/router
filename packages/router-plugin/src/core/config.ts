@@ -1,7 +1,9 @@
+import { existsSync, readFileSync } from 'node:fs'
 import { z } from 'zod'
 import {
   configSchema as generatorConfigSchema,
   getConfig as getGeneratorConfig,
+  resolveConfigPath,
 } from '@tanstack/router-generator'
 import type {
   CreateFileRoute,
@@ -108,8 +110,11 @@ export const configSchema = generatorConfigSchema.extend({
       // TODO: This has been made stable and is now "autoCodeSplitting". Remove in next major version.
       enableCodeSplitting: z.boolean().optional(),
       /**
-       * Rewrites literal `preload` strings in your files to imports of the
-       * strategies they stand for, eg. `<Link preload="intent" />` to
+       * Rewrites literal `preload` strings of the router's options in your
+       * files (`<Link>`, `createLink` components, `<RouterProvider>`,
+       * `createRouter`, `linkOptions` and `useLinkProps` from
+       * `@tanstack/react-router`) to imports of the strategies they stand
+       * for, eg. `<Link preload="intent" />` to
        * `<Link preload={intentPreload()} />` and `defaultPreload: 'viewport'`
        * to `defaultPreload: viewportPreload()`. The app then ships only the
        * strategies it uses, and Links don't load them on demand. Strings the
@@ -123,14 +128,29 @@ export const configSchema = generatorConfigSchema.extend({
     .optional(),
 })
 
+/** The `experimental` options of `tsr.config.json` in `root`, as written */
+function getFileExperimentalOptions(root: string) {
+  const file = resolveConfigPath({ configDirectory: root })
+  if (!existsSync(file)) {
+    return undefined
+  }
+  return (JSON.parse(readFileSync(file, 'utf-8')) as Partial<Config>)
+    .experimental
+}
+
 export const getConfig = (inlineConfig: Partial<Config>, root: string) => {
   const config = getGeneratorConfig(inlineConfig, root)
 
-  // The generator's own schema drops the plugin's experimental options
+  // The generator's own schema drops the plugin's experimental options, so
+  // they come from `tsr.config.json` and the inline options (which win)
   return configSchema.parse({
     ...inlineConfig,
     ...config,
-    experimental: { ...config.experimental, ...inlineConfig.experimental },
+    experimental: {
+      ...getFileExperimentalOptions(root),
+      ...config.experimental,
+      ...inlineConfig.experimental,
+    },
   })
 }
 

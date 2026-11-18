@@ -1,9 +1,9 @@
-import { getConfig } from '@tanstack/router-generator'
 import { createRouterGeneratorPlugin } from './router-generator-plugin'
 import { createRouterCodeSplitterPlugin } from './router-code-splitter-plugin'
 import { createRouterHmrPlugin } from './router-hmr-plugin'
 import { createRouterPreloadStringsPlugin } from './router-preload-strings-plugin'
 import { createRouterPluginContext } from './router-plugin-context'
+import { getConfig } from './config'
 import type { Config } from './config'
 import type { HmrStyle } from './hmr'
 import type {
@@ -88,13 +88,10 @@ export const unpluginRouterComposedFactory: UnpluginFactory<
     },
     ...routerGenerator,
   ]
-  // Before code splitting, so split route components are rewritten too. The
-  // generator's config doesn't carry the plugin's experimental options.
-  const pluginOptions = (
-    typeof options === 'function' ? options() : options
-  ) as Partial<Config>
+  // Before code splitting and HMR, so split route components are rewritten
+  // too
   if (
-    pluginOptions.experimental?.compilePreloadStrings &&
+    userConfig.experimental?.compilePreloadStrings &&
     userConfig.target === 'react'
   ) {
     result.push(createRouterPreloadStringsPlugin())

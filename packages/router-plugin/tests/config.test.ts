@@ -105,3 +105,41 @@ describe('getConfig', () => {
     )
   })
 })
+
+describe('getConfig: experimental.compilePreloadStrings', () => {
+  const withoutJson = path.resolve(import.meta.dirname, 'config', 'withoutJson')
+  const withJson = path.resolve(
+    import.meta.dirname,
+    'config',
+    'withExperimentalJson',
+  )
+
+  it('is absent by default', () => {
+    expect(
+      getConfig({}, withoutJson).experimental?.compilePreloadStrings,
+    ).toBeUndefined()
+  })
+
+  it('reads the inline option', () => {
+    expect(
+      getConfig({ experimental: { compilePreloadStrings: true } }, withoutJson)
+        .experimental,
+    ).toEqual({ compilePreloadStrings: true })
+  })
+
+  it('reads tsr.config.json', () => {
+    expect(getConfig({}, withJson).experimental).toEqual({
+      compilePreloadStrings: true,
+    })
+  })
+
+  it('merges the inline experimental options over tsr.config.json', () => {
+    expect(getConfig({ experimental: {} }, withJson).experimental).toEqual({
+      compilePreloadStrings: true,
+    })
+    expect(
+      getConfig({ experimental: { compilePreloadStrings: false } }, withJson)
+        .experimental,
+    ).toEqual({ compilePreloadStrings: false })
+  })
+})
