@@ -294,6 +294,16 @@ function useLinkPropsImpl(
     }
   }
 
+  if (process.env.NODE_ENV !== 'production') {
+    Vue.watchEffect(() => {
+      if (typeof preloadMode.value === 'function') {
+        console.warn(
+          "Vue Links don't support preload strategies yet, so this Link doesn't preload: use 'intent', 'viewport' or 'render'",
+        )
+      }
+    })
+  }
+
   useIntersectionObserver(
     ref,
     enqueuePreload,

@@ -143,6 +143,7 @@
     "@arethetypeswrong/cli": "catalog:",
     "publint": "catalog:",
     "rimraf": "catalog:",
+    "esbuild": "^0.28.1",
     "webpack": "^5.104.1"
   },
   "peerDependencies": {
