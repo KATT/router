@@ -2,7 +2,7 @@ import * as React from 'react'
 import { renderToString } from 'react-dom/server'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { loadPreloadStrings, preloadString } from '@tanstack/router-core'
+import { loadPreloadString, loadPreloadStrings } from '@tanstack/router-core'
 import {
   Link,
   RouterContextProvider,
@@ -19,7 +19,7 @@ import type { PreloadOption } from '../src'
 // loaded. A chunk can't load while a test runs synchronously.
 vi.mock('@tanstack/router-core', async (importOriginal) => {
   const core = await importOriginal<typeof Core>()
-  return { ...core, preloadString: vi.fn(core.preloadString) }
+  return { ...core, loadPreloadString: vi.fn(core.loadPreloadString) }
 })
 
 let observed: Map<Element, IntersectionObserverCallback>
@@ -53,7 +53,7 @@ afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
-  vi.mocked(preloadString).mockClear()
+  vi.mocked(loadPreloadString).mockClear()
   cleanup()
 })
 
@@ -74,7 +74,7 @@ const loadChunk = async () => {
   await act(() => loadPreloadStrings())
 }
 
-test('server rendering with string modes neither runs preloadString nor loads a chunk', () => {
+test('server rendering with string modes neither runs loadPreloadString nor loads a chunk', () => {
   const { wrap, preload } = setup(true)
   const html = renderToString(
     wrap(
@@ -92,7 +92,7 @@ test('server rendering with string modes neither runs preloadString nor loads a 
     ),
   )
   expect(html).toContain('href="/c"')
-  expect(preloadString).not.toHaveBeenCalled()
+  expect(loadPreloadString).not.toHaveBeenCalled()
   expect(preload).not.toHaveBeenCalled()
 })
 
@@ -117,7 +117,7 @@ test('disabled, external and reloadDocument Links start no strategy and load not
       </>,
     ),
   )
-  expect(preloadString).not.toHaveBeenCalled()
+  expect(loadPreloadString).not.toHaveBeenCalled()
   expect(strategy).not.toHaveBeenCalled()
   expect(preload).not.toHaveBeenCalled()
 })

@@ -7,7 +7,7 @@ import {
   getUrlScheme,
   isDangerousProtocol,
   linkNavigatingClick,
-  preloadString,
+  loadPreloadString,
   preloadWarning,
   removeTrailingSlash,
 } from '@tanstack/router-core'
@@ -339,8 +339,8 @@ export function useLinkProps<
   innerRef.d = dest
 
   // Preloading is up to a strategy: it listens to or observes the element
-  // itself and returns a cleanup. A string goes through `preloadString`, which
-  // loads the built-in strategies on demand. The element's ref callback runs
+  // itself and returns a cleanup. A string stands for a built-in strategy,
+  // which `loadPreloadString` loads on demand. The element's ref callback runs
   // it: it starts with an element and stops when the element detaches, on
   // unmount, for a new element (eg. a `createLink` component that switched
   // elements) and when a new href or preload option makes a new callback.
@@ -357,9 +357,9 @@ export function useLinkProps<
       }
       stop()
       innerRef.current = element
-      if (element) {
+      const start = () => {
         const strategy =
-          typeof preload === 'string' ? preloadString(preload) : preload
+          typeof preload === 'string' ? loadPreloadString(preload) : preload
         if (typeof strategy === 'function') {
           innerRef.s = strategy(
             router,
@@ -368,11 +368,18 @@ export function useLinkProps<
             () => preloadLink(router, innerRef.d),
             userPreloadDelay,
           )
+        } else if (strategy instanceof Promise) {
+          // Starts once its strategy loads, unless the element detached first
+          const waiting = (innerRef.s = () => {})
+          strategy.then(() => innerRef.s === waiting && start(), () => {})
         } else if (process.env.NODE_ENV !== 'production' && preload) {
           console.warn(
             `Invalid preload ${String(preload)}: use 'intent', 'viewport', 'render', false or a preload strategy`,
           )
         }
+      }
+      if (element) {
+        start()
       }
       if (typeof forwardedRef === 'function') {
         // React 19 callback refs may return a cleanup

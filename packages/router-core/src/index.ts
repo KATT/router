@@ -311,6 +311,7 @@ export {
   linkNavigatingClick,
   loadPreloadStrings,
   preloadString,
+  loadPreloadString,
   renderPreload,
   viewportPreload,
 } from './preload-strategies/index'

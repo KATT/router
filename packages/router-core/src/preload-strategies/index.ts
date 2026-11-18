@@ -5,7 +5,11 @@ export { intentPreload } from './intent'
 export { renderPreload } from './render'
 export { viewportPreload } from './viewport'
 export { createPreloadStrategy } from './shared'
-export { loadPreloadStrings, preloadString } from './lazy'
+export {
+  loadPreloadString,
+  loadPreloadStrings,
+  preloadString,
+} from './lazy'
 export { linkNavigatingClick } from './click'
 export type { BatchedViewportPreloadOptions } from './batched-viewport'
 export type { IntentPreloadOptions } from './intent'

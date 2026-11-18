@@ -13,7 +13,12 @@ const modes: Record<
   PreloadStrategy | Promise<PreloadStrategy> | undefined
 > = Object.create(null)
 
-const load = (mode: string) =>
+/**
+ * A string's strategy once loaded, else its pending load (`undefined` for
+ * other strings). The first call loads it.
+ * @internal
+ */
+export const loadPreloadString = (mode: string) =>
   (modes[mode] ??= (
     mode === 'intent'
       ? import('./strings/intent')
@@ -41,7 +46,9 @@ const load = (mode: string) =>
  */
 export function loadPreloadStrings(mode?: PreloadMode): Promise<unknown> {
   return Promise.all(
-    (mode ? [mode] : (['intent', 'viewport', 'render'] as const)).map(load),
+    (mode ? [mode] : (['intent', 'viewport', 'render'] as const)).map(
+      loadPreloadString,
+    ),
   )
 }
 
@@ -56,7 +63,7 @@ export function loadPreloadStrings(mode?: PreloadMode): Promise<unknown> {
  */
 export function preloadString(mode: PreloadMode): PreloadStrategy {
   return (...args) => {
-    const state = load(mode)
+    const state = loadPreloadString(mode)
     if (typeof state === 'function') {
       return state(...args)
     }
