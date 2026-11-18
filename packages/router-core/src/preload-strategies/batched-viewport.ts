@@ -56,7 +56,7 @@ export const batchedViewportPreload =
         timer = queue.size
           ? setTimeout(
               flush,
-              options.delay ?? router.options.defaultPreloadDelay ?? 0,
+              options.delay ?? router.options.defaultPreloadDelay,
             )
           : undefined
       }
