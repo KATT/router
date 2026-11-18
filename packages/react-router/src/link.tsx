@@ -354,12 +354,19 @@ export function useLinkProps<
   // loads the built-in strategies on demand.
   // eslint-disable-next-line react-hooks/rules-of-hooks
   React.useEffect(() => {
-    if (preload) {
-      return (typeof preload === 'string' ? preloadString(preload) : preload)(
+    const strategy =
+      typeof preload === 'string' ? preloadString(preload) : preload
+    if (typeof strategy === 'function') {
+      return strategy(
         router,
         innerRef,
         () => preloadLink(router, dest),
         userPreloadDelay,
+      )
+    }
+    if (process.env.NODE_ENV !== 'production' && preload) {
+      console.warn(
+        `Invalid preload ${String(preload)}: use 'intent', 'viewport', 'render', false or a preload strategy`,
       )
     }
     return undefined
