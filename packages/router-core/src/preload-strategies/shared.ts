@@ -27,6 +27,7 @@ export const delayOf = (router: AnyRouter, link: PreloadLink, delay?: number) =>
  * - What `start` returns runs for each Link on the client.
  * @experimental
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function createPreloadStrategy<TOptions extends object = object>(
   start: (options: TOptions, router: AnyRouter) => LinkPreloader,
 ): PreloadStrategyFactory<TOptions> {

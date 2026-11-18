@@ -36,7 +36,10 @@ const builtIns = {
   render: renderPreload,
 }
 
-const started = new WeakMap<AnyRouter, Map<PreloadStrategy, LinkPreloader>>()
+const started = /* @__PURE__ */ new WeakMap<
+  AnyRouter,
+  Map<PreloadStrategy, LinkPreloader>
+>()
 
 /**
  * Starts the strategy a `preload` option names for a router and gives what
