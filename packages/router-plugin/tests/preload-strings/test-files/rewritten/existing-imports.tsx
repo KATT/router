@@ -15,7 +15,7 @@ export function Nav() {
 }
 
 export function Shadowed() {
-  // Shadows the strategy's name here, so the string stays
+  // Shadows the import of the strategy here: it gets an import of its own
   const intent = 'not a strategy either'
   return <Link to="/d" preload="intent" title={intent} />
 }

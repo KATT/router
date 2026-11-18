@@ -1,12 +1,16 @@
+import { existsSync, readFileSync } from 'node:fs'
 import { z } from 'zod'
 import {
   configSchema as generatorConfigSchema,
   getConfig as getGeneratorConfig,
+  resolveConfigPath,
 } from '@tanstack/router-generator'
 import type {
   CreateFileRoute,
+  IntentPreloadOptions,
   RegisteredRouter,
   RouteIds,
+  ViewportPreloadOptions,
 } from '@tanstack/router-core'
 import type { CodeSplitGroupings } from './constants'
 
@@ -88,6 +92,75 @@ type FileRouteKeys = keyof (Parameters<
 >[0] & {})
 export type DeletableNodes = FileRouteKeys | (string & {})
 
+/**
+ * The options of the built-in strategies the plugin rewrites the string
+ * modes to, written into the code at build time, eg.
+ * `viewport: { rootMargin: '200px' }` makes `preload="viewport"`
+ * `viewportPreload({ rootMargin: '200px' })`.
+ * @experimental
+ */
+export interface PreloadStringsOptions {
+  /** The options of `intentPreload` for `'intent'` */
+  intent?: IntentPreloadOptions
+  /** The options of `viewportPreload` for `'viewport'` */
+  viewport?: ViewportPreloadOptions
+  /** `renderPreload` takes no options */
+  render?: Record<string, never>
+}
+
+// JSON values only: the plugin writes them into the code
+const preloadStringsOptionsSchema: z.ZodType<PreloadStringsOptions> =
+  z.strictObject({
+    intent: z.strictObject({ delay: z.number().optional() }).optional(),
+    viewport: z
+      .strictObject({
+        delay: z.number().optional(),
+        rootMargin: z.string().optional(),
+      })
+      .optional(),
+    render: z.strictObject({}).optional(),
+  })
+
+/**
+ * `true`, `false` or the options. Not a `z.union`: its error would list why
+ * the options aren't a boolean too.
+ */
+const compilePreloadStringsSchema = z
+  .custom<boolean | PreloadStringsOptions>()
+  .superRefine((typed, ctx) => {
+    // `z.custom` without a check lets any value through to here
+    const value: unknown = typed
+    if (typeof value === 'boolean') {
+      return
+    }
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `Expected a boolean, or an object with options for 'intent', 'viewport' and 'render', received ${JSON.stringify(value)}`,
+      })
+      return
+    }
+    const result = preloadStringsOptionsSchema.safeParse(value)
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        ctx.addIssue({ ...issue, code: 'custom' })
+      }
+    }
+  })
+
+/**
+ * The options of `experimental.compilePreloadStrings` when it's on (`{}` for
+ * `true`), `undefined` when it's off.
+ */
+export function getPreloadStringsOptions(
+  value: boolean | PreloadStringsOptions | undefined,
+): PreloadStringsOptions | undefined {
+  if (!value) {
+    return undefined
+  }
+  return value === true ? {} : value
+}
+
 export const configSchema = generatorConfigSchema.extend({
   codeSplittingOptions: z
     .custom<CodeSplittingOptions>((v) => {
@@ -108,29 +181,55 @@ export const configSchema = generatorConfigSchema.extend({
       // TODO: This has been made stable and is now "autoCodeSplitting". Remove in next major version.
       enableCodeSplitting: z.boolean().optional(),
       /**
-       * Rewrites literal `preload` strings in your files to imports of the
-       * strategies they stand for, eg. `<Link preload="intent" />` to
+       * Rewrites literal `preload` strings of the router's options in your
+       * files (`<Link>`, `createLink` components, `<RouterProvider>`,
+       * `createRouter`, `linkOptions` and `useLinkProps` from
+       * `@tanstack/react-router`) to imports of the strategies they stand
+       * for, eg. `<Link preload="intent" />` to
        * `<Link preload={intentPreload()} />` and `defaultPreload: 'viewport'`
        * to `defaultPreload: viewportPreload()`. The app then ships only the
        * strategies it uses, and Links don't load them on demand. Strings the
        * plugin can't see, eg. from a variable or a library, still load the
        * strategies on demand. React only.
+       *
+       * An object turns it on with options for the strategies it rewrites
+       * to, eg. `{ viewport: { rootMargin: '200px', delay: 100 } }` makes
+       * `preload="viewport"`
+       * `viewportPreload({ delay: 100, rootMargin: '200px' })`. They're
+       * written into the code at build time, so they apply only to the
+       * strings the plugin rewrites: strings it can't see load the
+       * strategies with their default options.
        * @experimental
        * @default false
        */
-      compilePreloadStrings: z.boolean().optional(),
+      compilePreloadStrings: compilePreloadStringsSchema.optional(),
     })
     .optional(),
 })
 
+/** The `experimental` options of `tsr.config.json` in `root`, as written */
+function getFileExperimentalOptions(root: string) {
+  const file = resolveConfigPath({ configDirectory: root })
+  if (!existsSync(file)) {
+    return undefined
+  }
+  return (JSON.parse(readFileSync(file, 'utf-8')) as Partial<Config>)
+    .experimental
+}
+
 export const getConfig = (inlineConfig: Partial<Config>, root: string) => {
   const config = getGeneratorConfig(inlineConfig, root)
 
-  // The generator's own schema drops the plugin's experimental options
+  // The generator's own schema drops the plugin's experimental options, so
+  // they come from `tsr.config.json` and the inline options (which win)
   return configSchema.parse({
     ...inlineConfig,
     ...config,
-    experimental: { ...config.experimental, ...inlineConfig.experimental },
+    experimental: {
+      ...getFileExperimentalOptions(root),
+      ...config.experimental,
+      ...inlineConfig.experimental,
+    },
   })
 }
 
